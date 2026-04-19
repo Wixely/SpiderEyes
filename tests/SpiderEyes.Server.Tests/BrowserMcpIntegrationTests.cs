@@ -31,16 +31,21 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
 
         _site = await TestSiteHost.StartAsync();
         var port = GetFreeTcpPort();
-        var serverExe = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "SpiderEyes.Server", "bin", "Debug", "net8.0", "SpiderEyes.Server.exe"));
         var artifactRoot = Path.Combine(Path.GetTempPath(), "SpiderEyes.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(artifactRoot);
+        var (serverCommand, serverArguments) = GetServerCommandArguments(stdio: false);
 
-        var startInfo = new ProcessStartInfo(serverExe)
+        var startInfo = new ProcessStartInfo(serverCommand)
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        foreach (var argument in serverArguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
         startInfo.Environment["SpiderEyes__Server__Host"] = "127.0.0.1";
         startInfo.Environment["SpiderEyes__Server__Port"] = port.ToString();
         startInfo.Environment["SpiderEyes__Browser__Headless"] = "true";
@@ -81,26 +86,7 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
             ConnectionTimeout = TimeSpan.FromSeconds(10),
         });
 
-        var workspaceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        _client = await McpClient.CreateAsync(
-            transport,
-            new McpClientOptions
-            {
-                Handlers = new McpClientHandlers
-                {
-                    RootsHandler = (_, _) => ValueTask.FromResult(new ListRootsResult
-                    {
-                        Roots =
-                        [
-                            new Root
-                            {
-                                Name = "workspace",
-                                Uri = new Uri(workspaceRoot).AbsoluteUri,
-                            },
-                        ],
-                    }),
-                },
-            });
+        _client = await McpClient.CreateAsync(transport, CreateClientOptions());
     }
 
     public async Task DisposeAsync()
@@ -218,10 +204,87 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
         Assert.Contains("SpiderEyes Demo", GetFirstText(runCode, GetServerLogs()));
     }
 
+    [Fact]
+    public async Task McpServer_ListsTools_AndResponds_OverStdio()
+    {
+        var artifactRoot = Path.Combine(Path.GetTempPath(), "SpiderEyes.Tests.Stdio", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(artifactRoot);
+        var (serverCommand, serverArguments) = GetServerCommandArguments(stdio: true);
+
+        await using var client = await McpClient.CreateAsync(
+            new StdioClientTransport(new StdioClientTransportOptions
+            {
+                Name = "SpiderEyes stdio",
+                Command = serverCommand,
+                Arguments = serverArguments,
+                WorkingDirectory = GetWorkspaceRoot(),
+                EnvironmentVariables = new Dictionary<string, string?>
+                {
+                    ["DOTNET_ENVIRONMENT"] = "Development",
+                    ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                    ["SpiderEyes__Browser__Headless"] = "true",
+                    ["SpiderEyes__Session__ArtifactRoot"] = artifactRoot,
+                    ["SpiderEyes__Browser__DownloadsPath"] = Path.Combine(artifactRoot, "downloads"),
+                },
+                ShutdownTimeout = TimeSpan.FromSeconds(10),
+            }),
+            CreateClientOptions());
+
+        var tools = await client.ListToolsAsync();
+        Assert.Contains(tools, tool => tool.Name == "browser_runtime_status");
+        Assert.Contains(tools, tool => tool.Name == "browser_navigate");
+
+        var runtimeStatusResult = await client.CallToolAsync("browser_runtime_status");
+        var runtimeStatusText = GetFirstText(runtimeStatusResult, string.Empty);
+        using var runtimeStatusDocument = JsonDocument.Parse(runtimeStatusText);
+        Assert.Equal("browser_runtime_status", runtimeStatusDocument.RootElement.GetProperty("tool").GetString());
+        Assert.Equal("stdio-session", runtimeStatusDocument.RootElement.GetProperty("sessionId").GetString());
+    }
+
     private static bool ArePlaywrightBrowsersInstalled()
     {
         var browserRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ms-playwright");
         return Directory.Exists(browserRoot);
+    }
+
+    private static McpClientOptions CreateClientOptions()
+    {
+        var workspaceRoot = GetWorkspaceRoot();
+        return new McpClientOptions
+        {
+            Handlers = new McpClientHandlers
+            {
+                RootsHandler = (_, _) => ValueTask.FromResult(new ListRootsResult
+                {
+                    Roots =
+                    [
+                        new Root
+                        {
+                            Name = "workspace",
+                            Uri = new Uri(workspaceRoot).AbsoluteUri,
+                        },
+                    ],
+                }),
+            },
+        };
+    }
+
+    private static string GetWorkspaceRoot()
+        => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+
+    private static (string Command, string[] Arguments) GetServerCommandArguments(bool stdio)
+    {
+        var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "SpiderEyes.Server", "bin", "Debug", "net8.0"));
+        var dllPath = Path.Combine(binRoot, "SpiderEyes.Server.dll");
+        var exePath = Path.Combine(binRoot, OperatingSystem.IsWindows() ? "SpiderEyes.Server.exe" : "SpiderEyes.Server");
+        var transportArguments = stdio ? ["--stdio"] : Array.Empty<string>();
+
+        if (File.Exists(exePath))
+        {
+            return (exePath, transportArguments);
+        }
+
+        return ("dotnet", [dllPath, .. transportArguments]);
     }
 
     private string GetServerLogs()

@@ -19,6 +19,8 @@ public sealed class SpiderEyesOptions
 
 public sealed class ServerOptions
 {
+    public SpiderEyesTransportMode Transport { get; set; } = SpiderEyesTransportMode.Http;
+
     [Required]
     public string Host { get; set; } = "127.0.0.1";
 
@@ -31,6 +33,12 @@ public sealed class ServerOptions
     public List<string> AllowedHosts { get; set; } = ["127.0.0.1", "localhost"];
 
     public List<string> AllowedOrigins { get; set; } = [];
+}
+
+public enum SpiderEyesTransportMode
+{
+    Http = 0,
+    Stdio = 1,
 }
 
 public sealed class SecurityOptions

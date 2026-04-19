@@ -42,9 +42,31 @@
       "problemMatcher": "$msCompile",
       "options": {
         "env": {
+          "DOTNET_ENVIRONMENT": "Development",
           "ASPNETCORE_ENVIRONMENT": "Development",
           "SpiderEyes__Server__Host": "127.0.0.1",
           "SpiderEyes__Server__Port": "8931"
+        }
+      }
+    },
+    {
+      "label": "run-stdio",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/SpiderEyes.Server/SpiderEyes.Server.csproj",
+        "--no-build",
+        "--",
+        "--stdio"
+      ],
+      "dependsOn": "build",
+      "problemMatcher": "$msCompile",
+      "options": {
+        "env": {
+          "DOTNET_ENVIRONMENT": "Development",
+          "ASPNETCORE_ENVIRONMENT": "Development"
         }
       }
     },

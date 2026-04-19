@@ -6,7 +6,7 @@ public sealed class SpiderEyesOptionsValidator : IValidateOptions<SpiderEyesOpti
 {
     public ValidateOptionsResult Validate(string? name, SpiderEyesOptions options)
     {
-        if (!options.Server.Route.StartsWith('/'))
+        if (options.Server.Transport == SpiderEyesTransportMode.Http && !options.Server.Route.StartsWith('/'))
         {
             return ValidateOptionsResult.Fail("SpiderEyes:Server:Route must start with '/'.");
         }

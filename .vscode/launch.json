@@ -12,9 +12,27 @@
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
+        "DOTNET_ENVIRONMENT": "Development",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "SpiderEyes__Server__Host": "127.0.0.1",
         "SpiderEyes__Server__Port": "8931"
+      }
+    },
+    {
+      "name": "Debug SpiderEyes Server (stdio)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/SpiderEyes.Server.dll",
+      "args": [
+        "--stdio"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     {

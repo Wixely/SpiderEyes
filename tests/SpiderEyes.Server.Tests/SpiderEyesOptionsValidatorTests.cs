@@ -49,4 +49,21 @@ public sealed class SpiderEyesOptionsValidatorTests
 
         Assert.True(result.Succeeded);
     }
+
+    [Fact]
+    public void Validate_Ignores_HttpRouteShape_ForStdioTransport()
+    {
+        var options = new SpiderEyesOptions
+        {
+            Server = new ServerOptions
+            {
+                Transport = SpiderEyesTransportMode.Stdio,
+                Route = "mcp",
+            },
+        };
+
+        var result = _validator.Validate(Options.DefaultName, options);
+
+        Assert.True(result.Succeeded);
+    }
 }
