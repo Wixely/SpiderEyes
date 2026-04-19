@@ -10,11 +10,16 @@ public sealed class BrowserSessionManager : BackgroundService
     private readonly SemaphoreSlim _createLock = new(1, 1);
     private readonly IOptionsMonitor<SpiderEyesOptions> _optionsMonitor;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly PlaywrightRuntimeService _playwrightRuntimeService;
 
-    public BrowserSessionManager(IOptionsMonitor<SpiderEyesOptions> optionsMonitor, ILoggerFactory loggerFactory)
+    public BrowserSessionManager(
+        IOptionsMonitor<SpiderEyesOptions> optionsMonitor,
+        ILoggerFactory loggerFactory,
+        PlaywrightRuntimeService playwrightRuntimeService)
     {
         _optionsMonitor = optionsMonitor;
         _loggerFactory = loggerFactory;
+        _playwrightRuntimeService = playwrightRuntimeService;
     }
 
     public async Task<BrowserSession> GetOrCreateAsync(string sessionId, CancellationToken cancellationToken)
@@ -34,7 +39,11 @@ public sealed class BrowserSessionManager : BackgroundService
                 return existing;
             }
 
-            var created = new BrowserSession(sessionId, _optionsMonitor.CurrentValue, _loggerFactory.CreateLogger<BrowserSession>());
+            var created = new BrowserSession(
+                sessionId,
+                _optionsMonitor.CurrentValue,
+                _playwrightRuntimeService,
+                _loggerFactory.CreateLogger<BrowserSession>());
             _sessions[sessionId] = created;
             return created;
         }

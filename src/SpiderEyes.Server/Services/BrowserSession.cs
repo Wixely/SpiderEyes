@@ -13,6 +13,7 @@ public sealed class BrowserSession : IAsyncDisposable
     private static readonly Regex RefPattern = new("^(?:ref=)?(?:e\\d+|f\\d+e\\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly SpiderEyesOptions _options;
+    private readonly PlaywrightRuntimeService _playwrightRuntimeService;
     private readonly ILogger<BrowserSession> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly List<ConsoleEntry> _consoleEntries = [];
@@ -31,10 +32,15 @@ public sealed class BrowserSession : IAsyncDisposable
     private PendingDialogAction? _nextDialogAction;
     private bool _tracingStarted;
 
-    public BrowserSession(string sessionId, SpiderEyesOptions options, ILogger<BrowserSession> logger)
+    public BrowserSession(
+        string sessionId,
+        SpiderEyesOptions options,
+        PlaywrightRuntimeService playwrightRuntimeService,
+        ILogger<BrowserSession> logger)
     {
         SessionId = sessionId;
         _options = options;
+        _playwrightRuntimeService = playwrightRuntimeService;
         _logger = logger;
 
         ArtifactDirectory = Path.GetFullPath(Path.Combine(_options.Session.ArtifactRoot, sessionId));
@@ -68,6 +74,14 @@ public sealed class BrowserSession : IAsyncDisposable
         if (_browser is not null && _context is not null)
         {
             return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.Browser.Channel) &&
+            !_playwrightRuntimeService.IsBrowserInstalled(_options.Browser.BrowserType))
+        {
+            throw new InvalidOperationException(
+                $"Playwright browser runtime '{_options.Browser.BrowserType}' is not installed on this machine. " +
+                $"Call the MCP tool 'browser_install_runtime' or run '{_playwrightRuntimeService.GetSuggestedInstallCommand(_options.Browser.BrowserType)}' on the host.");
         }
 
         _playwright ??= await Playwright.CreateAsync();
