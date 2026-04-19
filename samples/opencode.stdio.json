@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "spidereyes": {
+      "type": "local",
+      "command": [
+        "dotnet",
+        "C:\\ABSOLUTE\\PATH\\TO\\SpiderEyes\\src\\SpiderEyes.Server\\bin\\Debug\\net8.0\\SpiderEyes.Server.dll",
+        "--stdio"
+      ],
+      "enabled": true
+    }
+  }
+}
