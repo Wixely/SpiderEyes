@@ -9,6 +9,8 @@ namespace SpiderEyes.Server.Services;
 
 public sealed class BrowserToolExecutor
 {
+    private const string StdioSessionId = "stdio-session";
+
     private readonly BrowserSessionManager _sessionManager;
     private readonly FileAccessService _fileAccessService;
     private readonly PlaywrightRuntimeService _playwrightRuntimeService;
@@ -301,6 +303,7 @@ public sealed class BrowserToolExecutor
             {
                 server = new
                 {
+                    transport = options.Server.Transport.ToString(),
                     options.Server.Host,
                     options.Server.Port,
                     options.Server.Route,
@@ -726,7 +729,7 @@ public sealed class BrowserToolExecutor
         Func<BrowserSession, CancellationToken, Task<BrowserActionPayload>> action,
         CancellationToken cancellationToken)
     {
-        var sessionId = server.SessionId ?? throw new InvalidOperationException("MCP session ID is not available.");
+        var sessionId = server.SessionId ?? StdioSessionId;
         var session = await _sessionManager.GetOrCreateAsync(sessionId, cancellationToken);
 
         return await session.RunExclusiveAsync(async (lockedSession, ct) =>

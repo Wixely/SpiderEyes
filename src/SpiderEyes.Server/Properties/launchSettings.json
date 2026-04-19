@@ -11,6 +11,16 @@
         "SpiderEyes__Server__Host": "127.0.0.1",
         "SpiderEyes__Server__Port": "8931"
       }
+    },
+    "SpiderEyes.Server.Stdio": {
+      "commandName": "Project",
+      "dotnetRunMessages": false,
+      "launchBrowser": false,
+      "commandLineArgs": "--stdio",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
     }
   }
 }

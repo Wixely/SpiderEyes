@@ -1,12 +1,13 @@
 # SpiderEyes
 
-`SpiderEyes` is an HTTP-only Playwright MCP server written in C# for development-oriented browsing by LLM clients. It uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
+`SpiderEyes` is a Playwright MCP server written in C# for development-oriented browsing by LLM clients. It supports both Streamable HTTP and stdio transport using the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
 
-The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself.
+The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. A separate Node.js install is not required for SpiderEyes itself because it uses Playwright for .NET rather than the Node.js Playwright package.
 
 ## What it does
 
-- Hosts a stateful MCP endpoint at `http://127.0.0.1:8931/mcp` by default.
+- Hosts a stateful Streamable HTTP MCP endpoint at `http://127.0.0.1:8931/mcp` by default.
+- Can also run as a single-session stdio MCP server for local spawned-client workflows.
 - Launches one isolated Playwright browser session per MCP session.
 - Exposes an official-like `browser_*` tool surface for navigation, snapshots, forms, storage, routing, tracing, verification, and coordinate-based mouse control.
 - Uses Playwright AI ARIA snapshots so LLMs can work from structured page state instead of pixel screenshots.
@@ -15,7 +16,7 @@ The application ships with the Playwright .NET library, but it does not bundle t
 
 ## Repo layout
 
-- `src/SpiderEyes.Server`: ASP.NET Core MCP server, Playwright session runtime, tool implementations
+- `src/SpiderEyes.Server`: MCP server host, Playwright session runtime, tool implementations
 - `tests/SpiderEyes.Server.Tests`: unit tests plus end-to-end MCP integration tests
 - `Directory.Packages.props`: central package versions
 - `NuGet.config`: repo-local NuGet source pinning to `nuget.org`
@@ -41,7 +42,7 @@ dotnet build
 powershell .\src\SpiderEyes.Server\bin\Debug\net8.0\playwright.ps1 install chromium
 ```
 
-3. Run the server:
+3. Run the server over HTTP:
 
 ```powershell
 dotnet run --project .\src\SpiderEyes.Server
@@ -53,7 +54,19 @@ dotnet run --project .\src\SpiderEyes.Server
 curl http://127.0.0.1:8931/healthz
 ```
 
-If an MCP client is already connected, it can also do the install over the existing `/mcp` endpoint by calling `browser_install_runtime`.
+For stdio instead of HTTP:
+
+```powershell
+dotnet run --project .\src\SpiderEyes.Server -- --stdio
+```
+
+For MCP client configs, prefer launching the built server directly after `dotnet build`:
+
+```powershell
+dotnet .\src\SpiderEyes.Server\bin\Debug\net8.0\SpiderEyes.Server.dll --stdio
+```
+
+If an MCP client is already connected, it can also do the browser install over MCP by calling `browser_install_runtime`.
 
 ## VS Code
 
@@ -61,15 +74,23 @@ The repo includes a `.vscode` workspace setup so you can build, run, test, and d
 
 - `Ctrl+Shift+B`: runs the default `build` task
 - `Terminal > Run Task > run`: starts the MCP server in Development mode
+- `Terminal > Run Task > run-stdio`: starts the MCP server in stdio mode
 - `Terminal > Run Task > test`: runs the test suite
 - `Terminal > Run Task > install-playwright-chromium`: installs the Playwright Chromium runtime
 - `F5`: launches `Debug SpiderEyes Server`
 
-The debug profile runs the server from the workspace root and binds it to `http://127.0.0.1:8931`.
+The repo includes both `Debug SpiderEyes Server` for HTTP and `Debug SpiderEyes Server (stdio)` for local spawned-MCP debugging.
 
 ## Configuration
 
 Settings live under `SpiderEyes` in `appsettings.json` and can be overridden with environment variables such as `SpiderEyes__Server__Port=9000`.
+
+### Transport modes
+
+- `Http`: Streamable HTTP on `/mcp` plus `/healthz`
+- `Stdio`: single-session stdio transport over stdin/stdout
+
+You can also override transport from the command line with `--stdio` or `--http`.
 
 ### Security modes
 
@@ -83,6 +104,7 @@ Settings live under `SpiderEyes` in `appsettings.json` and can be overridden wit
 {
   "SpiderEyes": {
     "Server": {
+      "Transport": "Http",
       "Host": "0.0.0.0",
       "Port": 8931,
       "Route": "/mcp",
@@ -106,6 +128,7 @@ Settings live under `SpiderEyes` in `appsettings.json` and can be overridden wit
 {
   "SpiderEyes": {
     "Server": {
+      "Transport": "Http",
       "Host": "0.0.0.0",
       "Port": 8931,
       "AllowedHosts": [ "*" ]
@@ -122,10 +145,28 @@ This mode is intentionally loud and unsafe. Use it only on a trusted network.
 
 ## MCP client connection
 
-Point any Streamable HTTP MCP client at:
+For Streamable HTTP clients, point them at:
 
 ```text
 http://127.0.0.1:8931/mcp
+```
+
+For stdio clients, launch the server command directly:
+
+```text
+dotnet run --project .\src\SpiderEyes.Server -- --stdio
+```
+
+For desktop/editor MCP clients that store a command plus args, using the built `dll` is usually more reliable than `dotnet run`:
+
+```json
+{
+  "command": "dotnet",
+  "args": [
+    "C:\\path\\to\\SpiderEyes\\src\\SpiderEyes.Server\\bin\\Debug\\net8.0\\SpiderEyes.Server.dll",
+    "--stdio"
+  ]
+}
 ```
 
 If the client supports roots, SpiderEyes requests them and restricts file access to those roots plus the per-session artifact directory. If the client does not support roots, SpiderEyes falls back to the current working directory.
@@ -226,7 +267,7 @@ return new { title, url = page.Url };
 ## Manual smoke test
 
 1. Start the server.
-2. Connect an MCP Inspector or another Streamable HTTP MCP client to `http://127.0.0.1:8931/mcp`.
+2. Connect an MCP Inspector or another Streamable HTTP MCP client to `http://127.0.0.1:8931/mcp`, or launch the same server with `--stdio` from a stdio-capable client.
 3. Call `browser_navigate` with `https://example.com`.
 4. Call `browser_snapshot` and confirm the returned snapshot contains `Example Domain`.
 5. Call `browser_take_screenshot` and confirm an image is written under `artifacts/<session-id>/`.
@@ -255,7 +296,7 @@ The integration tests require Playwright browsers to be installed first.
 
 Included in v1:
 
-- Streamable HTTP only
+- Streamable HTTP and stdio
 - Chromium/Firefox/WebKit launch support
 - Per-session isolated browser processes
 - AI snapshots, routing, storage, tracing, assertions, and coordinate tools
