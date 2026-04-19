@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug SpiderEyes Server",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/SpiderEyes.Server.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SpiderEyes__Server__Host": "127.0.0.1",
+        "SpiderEyes__Server__Port": "8931"
+      }
+    },
+    {
+      "name": "Attach to SpiderEyes Server",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}

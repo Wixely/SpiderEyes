@@ -55,6 +55,18 @@ curl http://127.0.0.1:8931/healthz
 
 If an MCP client is already connected, it can also do the install over the existing `/mcp` endpoint by calling `browser_install_runtime`.
 
+## VS Code
+
+The repo includes a `.vscode` workspace setup so you can build, run, test, and debug directly in VS Code.
+
+- `Ctrl+Shift+B`: runs the default `build` task
+- `Terminal > Run Task > run`: starts the MCP server in Development mode
+- `Terminal > Run Task > test`: runs the test suite
+- `Terminal > Run Task > install-playwright-chromium`: installs the Playwright Chromium runtime
+- `F5`: launches `Debug SpiderEyes Server`
+
+The debug profile runs the server from the workspace root and binds it to `http://127.0.0.1:8931`.
+
 ## Configuration
 
 Settings live under `SpiderEyes` in `appsettings.json` and can be overridden with environment variables such as `SpiderEyes__Server__Port=9000`.
