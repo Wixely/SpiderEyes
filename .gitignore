@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test and coverage output
+TestResults/
+coverage/
+coverage.*
+
+# Playwright and browser artifacts
+artifacts/
+playwright-report/
+playwright-traces/
+
+# Logs and local overrides
+*.log
+appsettings.Local.json
+
+# OS noise
+Thumbs.db
+.DS_Store
