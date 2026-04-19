@@ -24,6 +24,7 @@ builder.WebHost.UseUrls($"http://{bindHost}:{bindPort}");
 builder.Services.AddSingleton<BrowserSessionManager>();
 builder.Services.AddHostedService(static serviceProvider => serviceProvider.GetRequiredService<BrowserSessionManager>());
 builder.Services.AddSingleton<FileAccessService>();
+builder.Services.AddSingleton<PlaywrightRuntimeService>();
 builder.Services.AddSingleton<RunCodeService>();
 builder.Services.AddSingleton<BrowserToolExecutor>();
 

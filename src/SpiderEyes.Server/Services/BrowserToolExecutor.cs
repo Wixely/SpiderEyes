@@ -11,17 +11,20 @@ public sealed class BrowserToolExecutor
 {
     private readonly BrowserSessionManager _sessionManager;
     private readonly FileAccessService _fileAccessService;
+    private readonly PlaywrightRuntimeService _playwrightRuntimeService;
     private readonly RunCodeService _runCodeService;
     private readonly IOptionsMonitor<SpiderEyesOptions> _optionsMonitor;
 
     public BrowserToolExecutor(
         BrowserSessionManager sessionManager,
         FileAccessService fileAccessService,
+        PlaywrightRuntimeService playwrightRuntimeService,
         RunCodeService runCodeService,
         IOptionsMonitor<SpiderEyesOptions> optionsMonitor)
     {
         _sessionManager = sessionManager;
         _fileAccessService = fileAccessService;
+        _playwrightRuntimeService = playwrightRuntimeService;
         _runCodeService = runCodeService;
         _optionsMonitor = optionsMonitor;
     }
@@ -630,6 +633,24 @@ public sealed class BrowserToolExecutor
             }
 
             return await _runCodeService.ExecuteAsync(session, server, code, fileName, ct);
+        }, cancellationToken);
+
+    public Task<BrowserCommandResult> RuntimeStatusAsync(McpServer server, string? browser, CancellationToken cancellationToken)
+        => ExecuteAsync(server, "browser_runtime_status", PageCaptureMode.None, async (session, ct) =>
+        {
+            await Task.CompletedTask;
+            return new BrowserActionPayload(
+                Data: _playwrightRuntimeService.GetStatus(browser),
+                Message: "Loaded Playwright runtime status.");
+        }, cancellationToken);
+
+    public Task<BrowserCommandResult> InstallRuntimeAsync(McpServer server, string? browser, bool withDependencies, CancellationToken cancellationToken)
+        => ExecuteAsync(server, "browser_install_runtime", PageCaptureMode.None, async (session, ct) =>
+        {
+            await Task.CompletedTask;
+            return new BrowserActionPayload(
+                Data: await _playwrightRuntimeService.InstallAsync(browser, withDependencies, ct),
+                Message: "Playwright runtime installation completed.");
         }, cancellationToken);
 
     private Task<BrowserCommandResult> StorageGetAsync(McpServer server, string tool, string storageObject, string? key, string? tabId, CancellationToken cancellationToken)

@@ -137,6 +137,15 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
         Assert.Contains(tools, tool => tool.Name == "browser_navigate");
         Assert.Contains(tools, tool => tool.Name == "browser_snapshot");
         Assert.Contains(tools, tool => tool.Name == "browser_run_code");
+        Assert.Contains(tools, tool => tool.Name == "browser_runtime_status");
+        Assert.Contains(tools, tool => tool.Name == "browser_install_runtime");
+
+        var runtimeStatusResult = await _client.CallToolAsync("browser_runtime_status");
+        var runtimeStatusText = GetFirstText(runtimeStatusResult, GetServerLogs());
+        using (var runtimeStatusDocument = JsonDocument.Parse(runtimeStatusText))
+        {
+            Assert.True(runtimeStatusDocument.RootElement.GetProperty("data").GetProperty("isInstalled").GetBoolean());
+        }
 
         var navigateResult = await _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
         {
@@ -171,6 +180,17 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
 
         Assert.NotNull(_client);
         Assert.NotNull(_site);
+
+        var installRuntime = await _client!.CallToolAsync("browser_install_runtime", new Dictionary<string, object?>
+        {
+            ["browser"] = "chromium",
+        });
+        var installRuntimeText = GetFirstText(installRuntime, GetServerLogs());
+        using (var installDocument = JsonDocument.Parse(installRuntimeText))
+        {
+            Assert.Equal("chromium", installDocument.RootElement.GetProperty("data").GetProperty("installedBrowser").GetString());
+            Assert.True(installDocument.RootElement.GetProperty("data").GetProperty("status").GetProperty("isInstalled").GetBoolean());
+        }
 
         await _client!.CallToolAsync("browser_navigate", new Dictionary<string, object?>
         {

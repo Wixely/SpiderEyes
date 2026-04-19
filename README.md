@@ -2,6 +2,8 @@
 
 `SpiderEyes` is an HTTP-only Playwright MCP server written in C# for development-oriented browsing by LLM clients. It uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
 
+The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself.
+
 ## What it does
 
 - Hosts a stateful MCP endpoint at `http://127.0.0.1:8931/mcp` by default.
@@ -9,6 +11,7 @@
 - Exposes an official-like `browser_*` tool surface for navigation, snapshots, forms, storage, routing, tracing, verification, and coordinate-based mouse control.
 - Uses Playwright AI ARIA snapshots so LLMs can work from structured page state instead of pixel screenshots.
 - Supports a C#-based `browser_run_code` tool with access to `page`, `context`, `browser`, `playwright`, `sessionId`, and `ct`.
+- Exposes MCP tools to inspect and install the required Playwright browser runtime on the host.
 
 ## Repo layout
 
@@ -49,6 +52,8 @@ dotnet run --project .\src\SpiderEyes.Server
 ```powershell
 curl http://127.0.0.1:8931/healthz
 ```
+
+If an MCP client is already connected, it can also do the install over the existing `/mcp` endpoint by calling `browser_install_runtime`.
 
 ## Configuration
 
@@ -165,6 +170,8 @@ If the client supports roots, SpiderEyes requests them and restricts file access
 - `browser_highlight`
 - `browser_hide_highlight`
 - `browser_generate_locator`
+- `browser_runtime_status`
+- `browser_install_runtime`
 - `browser_start_tracing`
 - `browser_stop_tracing`
 - `browser_verify_element_visible`
@@ -212,6 +219,8 @@ return new { title, url = page.Url };
 4. Call `browser_snapshot` and confirm the returned snapshot contains `Example Domain`.
 5. Call `browser_take_screenshot` and confirm an image is written under `artifacts/<session-id>/`.
 
+If the machine has never downloaded Playwright browsers, call `browser_runtime_status` first and then `browser_install_runtime` from the MCP client.
+
 ## Tests
 
 Run the full suite:
@@ -228,6 +237,7 @@ The integration tests require Playwright browsers to be installed first.
 - `browser_run_code` executes arbitrary C# against a live browser session. Disable it with `SpiderEyes__Features__EnableRunCode=false` if that is too much power for your client.
 - `RemoteNoAuth` is intentionally dangerous and should not be exposed on the public internet.
 - File operations are root-scoped by default. `AllowUnrestrictedFileAccess=true` removes that guardrail.
+- `browser_install_runtime` downloads executables onto the host machine. `withDependencies=true` may also attempt OS-level dependency installation when Playwright supports it.
 
 ## Current scope
 

@@ -160,4 +160,21 @@ public sealed class DevtoolsBrowserTools
         [Description("Inline C# script to run.")] string? code = null,
         [Description("Optional script file to load from MCP roots or the workspace.")] string? fileName = null)
         => _executor.RunCodeAsync(server, code, fileName, cancellationToken);
+
+    [McpServerTool(Name = "browser_runtime_status", UseStructuredContent = true, ReadOnly = true)]
+    [Description("Report whether the required Playwright browser runtime is already installed on the host.")]
+    public Task<BrowserCommandResult> RuntimeStatusAsync(
+        McpServer server,
+        CancellationToken cancellationToken,
+        [Description("Browser to inspect: configured, chromium, firefox, or webkit.")] string? browser = null)
+        => _executor.RuntimeStatusAsync(server, browser, cancellationToken);
+
+    [McpServerTool(Name = "browser_install_runtime", UseStructuredContent = true)]
+    [Description("Install the required Playwright browser runtime on the host machine from this MCP session.")]
+    public Task<BrowserCommandResult> InstallRuntimeAsync(
+        McpServer server,
+        CancellationToken cancellationToken,
+        [Description("Browser to install: configured, chromium, firefox, or webkit.")] string? browser = null,
+        [Description("Also install OS-level dependencies when supported by Playwright.")] bool withDependencies = false)
+        => _executor.InstallRuntimeAsync(server, browser, withDependencies, cancellationToken);
 }
