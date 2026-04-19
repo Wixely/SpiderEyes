@@ -1,0 +1,82 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "restore",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "restore",
+        "${workspaceFolder}/SpiderEyes.sln"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/SpiderEyes.sln",
+        "-c",
+        "Debug"
+      ],
+      "dependsOn": "restore",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "run",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/SpiderEyes.Server/SpiderEyes.Server.csproj",
+        "--no-build"
+      ],
+      "dependsOn": "build",
+      "problemMatcher": "$msCompile",
+      "options": {
+        "env": {
+          "ASPNETCORE_ENVIRONMENT": "Development",
+          "SpiderEyes__Server__Host": "127.0.0.1",
+          "SpiderEyes__Server__Port": "8931"
+        }
+      }
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/SpiderEyes.sln",
+        "-c",
+        "Debug",
+        "--no-build"
+      ],
+      "dependsOn": "build",
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "install-playwright-chromium",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/playwright.ps1",
+        "install",
+        "chromium"
+      ],
+      "dependsOn": "build",
+      "problemMatcher": []
+    }
+  ]
+}
