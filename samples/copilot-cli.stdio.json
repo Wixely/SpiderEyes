@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "spidereyes": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "C:\\ABSOLUTE\\PATH\\TO\\SpiderEyes\\src\\SpiderEyes.Server\\bin\\Debug\\net8.0\\SpiderEyes.Server.dll",
+        "--stdio"
+      ],
+      "env": {},
+      "tools": [
+        "*"
+      ]
+    }
+  }
+}

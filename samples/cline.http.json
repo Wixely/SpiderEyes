@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "spidereyes": {
+      "url": "http://127.0.0.1:8931/mcp",
+      "type": "streamableHttp",
+      "disabled": false,
+      "timeout": 60
+    }
+  }
+}
