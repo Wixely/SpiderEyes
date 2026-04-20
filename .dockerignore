@@ -1,0 +1,11 @@
+.git
+.github
+.vs
+.vscode
+.dotnet
+**/bin
+**/obj
+TestResults
+artifacts
+playwright-report
+playwright-traces
