@@ -1,0 +1,109 @@
+name: Build Release Packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.zip_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            zip_name: SpiderEyes-win-x64.zip
+            artifact_name: SpiderEyes-win-x64
+            self_contained: false
+          - rid: linux-x64
+            zip_name: SpiderEyes-linux-x64.zip
+            artifact_name: SpiderEyes-linux-x64
+            self_contained: false
+          - rid: win-x64
+            zip_name: SpiderEyes-win-x64-standalone.zip
+            artifact_name: SpiderEyes-win-x64-standalone
+            self_contained: true
+          - rid: linux-x64
+            zip_name: SpiderEyes-linux-x64-standalone.zip
+            artifact_name: SpiderEyes-linux-x64-standalone
+            self_contained: true
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore SpiderEyes.sln
+
+      - name: Build
+        run: dotnet build SpiderEyes.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test SpiderEyes.sln -c Release --no-build --verbosity normal
+
+      - name: Publish ${{ matrix.rid }}
+        run: >
+          dotnet publish src/SpiderEyes.Server/SpiderEyes.Server.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained ${{ matrix.self_contained }}
+          -o publish/${{ matrix.rid }}
+
+      - name: Package ${{ matrix.rid }}
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}
+          zip -r "../../${{ matrix.zip_name }}" .
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.zip_name }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Show release assets
+        shell: bash
+        run: find release-assets -maxdepth 2 -type f | sort
+
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+          gh release create "${GITHUB_REF_NAME}" --generate-notes
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            release-assets/SpiderEyes-win-x64/SpiderEyes-win-x64.zip \
+            release-assets/SpiderEyes-linux-x64/SpiderEyes-linux-x64.zip \
+            release-assets/SpiderEyes-win-x64-standalone/SpiderEyes-win-x64-standalone.zip \
+            release-assets/SpiderEyes-linux-x64-standalone/SpiderEyes-linux-x64-standalone.zip \
+            --clobber
