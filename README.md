@@ -1,6 +1,6 @@
 # SpiderEyes
 
-`SpiderEyes` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. Its core selling point is that it does not require Node.js or Python to run the server: you build and host it with the .NET SDK, the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
+`SpiderEyes` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. It does not require Node.js or Python to run the server. Uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
 
 The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. SpiderEyes itself still does not require a separate Node.js or Python install, because it uses Playwright for .NET rather than the Node.js Playwright package or a Python wrapper.
 
