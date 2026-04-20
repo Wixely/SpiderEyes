@@ -37,6 +37,10 @@ Sample files:
   Target: `~/.copilot/mcp-config.json`
 - `copilot-cli.http.json`
   Target: `~/.copilot/mcp-config.json`
+- `claude-code.stdio.json`
+  Target: `.mcp.json` in the project root, or add the same `mcpServers` entry with `claude mcp add`
+- `claude-code.http.json`
+  Target: `.mcp.json` in the project root, or add the same `mcpServers` entry with `claude mcp add`
 - `codex.stdio.toml`
   Target: `~/.codex/config.toml`
 - `codex.http.toml`
@@ -48,6 +52,7 @@ Config shape by client:
 - Cline uses `mcpServers`.
 - GitHub Copilot in VS Code uses `servers`.
 - GitHub Copilot CLI uses `mcpServers`.
+- Claude Code uses `mcpServers` in `.mcp.json`.
 - Codex uses TOML under `mcp_servers`.
 
 References:
@@ -56,4 +61,5 @@ References:
 - Cline MCP docs: `https://docs.cline.bot/mcp/adding-and-configuring-servers`, `https://docs.cline.bot/mcp/connecting-to-a-remote-server`
 - VS Code MCP config reference: `https://code.visualstudio.com/docs/copilot/reference/mcp-configuration`
 - GitHub Copilot CLI MCP docs: `https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers`
+- Claude Code MCP docs: `https://docs.anthropic.com/en/docs/claude-code/mcp`
 - OpenAI Docs MCP / Codex MCP docs: `https://developers.openai.com/learn/docs-mcp`

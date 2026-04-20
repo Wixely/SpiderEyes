@@ -1,8 +1,15 @@
 # SpiderEyes
 
-`SpiderEyes` is a Playwright MCP server written in C# for development-oriented browsing by LLM clients. It supports both Streamable HTTP and stdio transport using the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
+`SpiderEyes` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. Its core selling point is that it does not require Node.js or Python to run the server: you build and host it with the .NET SDK, the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
 
-The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. A separate Node.js install is not required for SpiderEyes itself because it uses Playwright for .NET rather than the Node.js Playwright package.
+The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. SpiderEyes itself still does not require a separate Node.js or Python install, because it uses Playwright for .NET rather than the Node.js Playwright package or a Python wrapper.
+
+## Why SpiderEyes
+
+- No Node.js required to run the MCP server.
+- No Python required to run the MCP server.
+- Pure C# / .NET implementation for teams already standardised on the .NET toolchain.
+- Supports both Streamable HTTP and stdio transport from the same server host.
 
 ## What it does
 
@@ -65,6 +72,47 @@ For MCP client configs, prefer launching the built server directly after `dotnet
 ```powershell
 dotnet .\src\SpiderEyes.Server\bin\Debug\net8.0\SpiderEyes.Server.dll --stdio
 ```
+
+## Windows Service
+
+For long-running local HTTP hosting on Windows, SpiderEyes can run as a Windows Service.
+
+1. Publish the server:
+
+```powershell
+dotnet publish .\src\SpiderEyes.Server -c Release -r win-x64 --self-contained false
+```
+
+2. Create the service pointing at the published executable:
+
+```powershell
+sc.exe create SpiderEyes binPath= "C:\ABSOLUTE\PATH\TO\SpiderEyes.Server.exe" start= auto
+```
+
+3. Start it:
+
+```powershell
+sc.exe start SpiderEyes
+```
+
+The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `SpiderEyes__...` environment variables for the service.
+
+## Docker
+
+The repo includes a basic `Dockerfile` for HTTP-mode hosting:
+
+```powershell
+docker build -t spidereyes .
+docker run --rm -p 8931:8931 spidereyes
+```
+
+By default the container listens on `http://0.0.0.0:8931/mcp`.
+
+Notes:
+
+- The container image is set up for the server itself, not for preinstalled Playwright browser runtimes.
+- After the container starts, you can call `browser_runtime_status` and `browser_install_runtime` if you want to install the configured browser runtime from inside the MCP session.
+- If you want a production container with browsers pre-baked in, that can be added as a second Dockerfile later.
 
 If an MCP client is already connected, it can also do the browser install over MCP by calling `browser_install_runtime`.
 

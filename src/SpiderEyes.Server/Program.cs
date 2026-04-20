@@ -1,8 +1,11 @@
+using ModelContextProtocol.Server;
 using Microsoft.Extensions.Options;
 using SpiderEyes.Server.Configuration;
 using SpiderEyes.Server.Hosting;
 using SpiderEyes.Server.Services;
 using SpiderEyes.Server.Tools;
+
+const string ServiceName = "SpiderEyes";
 
 var transportOverride = GetTransportOverride(args);
 var filteredArgs = FilterTransportAliases(args);
@@ -24,6 +27,10 @@ return;
 static async Task RunHttpAsync(string[] args, SpiderEyesTransportMode? transportOverride)
 {
     var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseWindowsService(options =>
+    {
+        options.ServiceName = ServiceName;
+    });
     ApplyTransportOverride(builder.Configuration, transportOverride);
     ConfigureOptions(builder.Services, builder.Configuration);
 
@@ -35,6 +42,7 @@ static async Task RunHttpAsync(string[] args, SpiderEyesTransportMode? transport
     var bindHost = string.IsNullOrWhiteSpace(bootstrapOptions.Server.Host) ? "127.0.0.1" : bootstrapOptions.Server.Host;
     var bindPort = bootstrapOptions.Server.Port <= 0 ? 8931 : bootstrapOptions.Server.Port;
     builder.WebHost.UseUrls($"http://{bindHost}:{bindPort}");
+    SetInteractiveConsoleTitle(bindPort);
 
     ConfigureToolCatalog(
         builder.Services
@@ -50,6 +58,7 @@ static async Task RunHttpAsync(string[] args, SpiderEyesTransportMode? transport
     var app = builder.Build();
 
     var options = app.Services.GetRequiredService<IOptions<SpiderEyesOptions>>().Value;
+    WriteHttpStartupDiagnostics(options, bindHost, bindPort);
     if (options.Security.Mode == SpiderEyesSecurityMode.RemoteNoAuth)
     {
         app.Logger.LogWarning("SpiderEyes is running in RemoteNoAuth mode. The MCP endpoint is exposed without authentication.");
@@ -196,5 +205,94 @@ static string[] FilterTransportAliases(IEnumerable<string> args)
         !string.Equals(arg, "--stdio", StringComparison.OrdinalIgnoreCase)
         && !string.Equals(arg, "--http", StringComparison.OrdinalIgnoreCase))
         .ToArray();
+
+static void SetInteractiveConsoleTitle(int port)
+{
+    if (!Environment.UserInteractive)
+    {
+        return;
+    }
+
+    Console.Title = $"{ServiceName} : {port}";
+}
+
+static void WriteHttpStartupDiagnostics(SpiderEyesOptions options, string bindHost, int bindPort)
+{
+    var toolNames = GetEnabledToolNames(options);
+    var publiclyReachable = IsPublicBinding(bindHost, options.Security.Mode);
+
+    Console.WriteLine($"{ServiceName} HTTP startup");
+    Console.WriteLine($"  Endpoint: http://{bindHost}:{bindPort}{options.Server.Route}");
+    Console.WriteLine($"  Binding: {(publiclyReachable ? "public/network" : "local-only")} ({bindHost}:{bindPort})");
+    Console.WriteLine($"  Security: {options.Security.Mode}");
+    Console.WriteLine($"  Claude compatibility mode: {options.Features.ClaudeCompatibleToolCatalog}");
+    Console.WriteLine($"  Run code enabled: {options.Features.EnableRunCode}");
+    Console.WriteLine($"  Unrestricted file access: {options.Features.AllowUnrestrictedFileAccess}");
+    Console.WriteLine($"  Browser: {options.Browser.BrowserType}, headless={options.Browser.Headless}, channel={options.Browser.Channel ?? "(default)"}");
+    Console.WriteLine($"  Session idle timeout: {options.Session.IdleTimeout}");
+    Console.WriteLine($"  Tool count: {toolNames.Count}");
+    foreach (var toolName in toolNames)
+    {
+        Console.WriteLine($"    - {toolName}");
+    }
+}
+
+static List<string> GetEnabledToolNames(SpiderEyesOptions options)
+{
+    var toolTypes = options.Features.ClaudeCompatibleToolCatalog
+        ? [typeof(ClaudeCompatibleBrowserTools)]
+        : new[] { typeof(CoreBrowserTools), typeof(NetworkStorageBrowserTools), typeof(DevtoolsBrowserTools) };
+
+    return toolTypes
+        .SelectMany(static toolType => toolType
+            .GetMethods()
+            .Select(method => method.GetCustomAttributes(typeof(McpServerToolAttribute), inherit: false)
+                .OfType<McpServerToolAttribute>()
+                .Select(attribute => attribute.Name))
+            .SelectMany(static names => names))
+        .Where(static name => !string.IsNullOrWhiteSpace(name))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(static name => name, StringComparer.OrdinalIgnoreCase)
+        .ToList()!;
+}
+
+static bool IsPublicBinding(string bindHost, SpiderEyesSecurityMode securityMode)
+{
+    if (securityMode == SpiderEyesSecurityMode.LocalOnly)
+    {
+        return false;
+    }
+
+    if (string.IsNullOrWhiteSpace(bindHost))
+    {
+        return false;
+    }
+
+    if (string.Equals(bindHost, "localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        return false;
+    }
+
+    if (string.Equals(bindHost, "0.0.0.0", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(bindHost, "[::]", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(bindHost, "::", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(bindHost, "+", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(bindHost, "*", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (Uri.CheckHostName(bindHost) == UriHostNameType.Dns)
+    {
+        return true;
+    }
+
+    if (!System.Net.IPAddress.TryParse(bindHost, out var ipAddress))
+    {
+        return false;
+    }
+
+    return !System.Net.IPAddress.IsLoopback(ipAddress);
+}
 
 public partial class Program;
