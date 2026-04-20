@@ -11,32 +11,41 @@ permissions:
 
 jobs:
   publish:
-    name: Publish ${{ matrix.zip_name }}
+    name: Publish ${{ matrix.base_name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - rid: win-x64
-            zip_name: SpiderEyes-win-x64.zip
+            base_name: SpiderEyes-win-x64
             artifact_name: SpiderEyes-win-x64
             self_contained: false
           - rid: linux-x64
-            zip_name: SpiderEyes-linux-x64.zip
+            base_name: SpiderEyes-linux-x64
             artifact_name: SpiderEyes-linux-x64
             self_contained: false
           - rid: win-x64
-            zip_name: SpiderEyes-win-x64-standalone.zip
+            base_name: SpiderEyes-win-x64-standalone
             artifact_name: SpiderEyes-win-x64-standalone
             self_contained: true
           - rid: linux-x64
-            zip_name: SpiderEyes-linux-x64-standalone.zip
+            base_name: SpiderEyes-linux-x64-standalone
             artifact_name: SpiderEyes-linux-x64-standalone
             self_contained: true
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Compute package version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "PACKAGE_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "PACKAGE_VERSION=dev-${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -64,13 +73,13 @@ jobs:
         shell: bash
         run: |
           cd publish/${{ matrix.rid }}
-          zip -r "../../${{ matrix.zip_name }}" .
+          zip -r "../../${{ matrix.base_name }}-${PACKAGE_VERSION}.zip" .
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.zip_name }}
+          path: ${{ matrix.base_name }}-${{ env.PACKAGE_VERSION }}.zip
           if-no-files-found: error
 
   release:
@@ -82,6 +91,10 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Compute package version
+        shell: bash
+        run: echo "PACKAGE_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
 
       - name: Download packaged artifacts
         uses: actions/download-artifact@v4
@@ -105,8 +118,8 @@ jobs:
         shell: bash
         run: |
           gh release upload "${GITHUB_REF_NAME}" \
-            release-assets/SpiderEyes-win-x64/SpiderEyes-win-x64.zip \
-            release-assets/SpiderEyes-linux-x64/SpiderEyes-linux-x64.zip \
-            release-assets/SpiderEyes-win-x64-standalone/SpiderEyes-win-x64-standalone.zip \
-            release-assets/SpiderEyes-linux-x64-standalone/SpiderEyes-linux-x64-standalone.zip \
+            release-assets/SpiderEyes-win-x64/SpiderEyes-win-x64-${PACKAGE_VERSION}.zip \
+            release-assets/SpiderEyes-linux-x64/SpiderEyes-linux-x64-${PACKAGE_VERSION}.zip \
+            release-assets/SpiderEyes-win-x64-standalone/SpiderEyes-win-x64-standalone-${PACKAGE_VERSION}.zip \
+            release-assets/SpiderEyes-linux-x64-standalone/SpiderEyes-linux-x64-standalone-${PACKAGE_VERSION}.zip \
             --clobber
