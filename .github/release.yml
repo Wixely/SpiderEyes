@@ -1,0 +1,32 @@
+name: Build release from tag
+
+on:
+  push:
+    tags:
+      - 'v*'   # runs on v1.0.0, v2.3.4, etc.
+
+permissions:
+  contents: write   # needed to create/edit releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Replace this with your real build steps
+      - name: Build files
+        run: |
+          mkdir -p dist
+          echo "hello from ${GITHUB_REF_NAME}" > dist/README.txt
+          tar -czf myapp-${GITHUB_REF_NAME}-linux-amd64.tar.gz dist
+
+      - name: Create GitHub release and upload asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "./myapp-${GITHUB_REF_NAME}-linux-amd64.tar.gz" \
+            --generate-notes
