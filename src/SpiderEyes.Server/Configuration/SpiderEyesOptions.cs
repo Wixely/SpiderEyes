@@ -116,4 +116,6 @@ public sealed class FeatureOptions
     public bool EnableRunCode { get; set; } = true;
 
     public bool AllowUnrestrictedFileAccess { get; set; }
+
+    public bool ClaudeCompatibleToolCatalog { get; set; }
 }

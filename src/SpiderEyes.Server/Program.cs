@@ -44,7 +44,8 @@ static async Task RunHttpAsync(string[] args, SpiderEyesTransportMode? transport
                 options.Stateless = false;
                 options.IdleTimeout = bootstrapOptions.Session.IdleTimeout;
                 options.PerSessionExecutionContext = false;
-            }));
+            }),
+        bootstrapOptions);
 
     var app = builder.Build();
 
@@ -86,7 +87,8 @@ static async Task RunStdioAsync(string[] args, SpiderEyesTransportMode? transpor
     ConfigureToolCatalog(
         builder.Services
             .AddMcpServer()
-            .WithStdioServerTransport());
+            .WithStdioServerTransport(),
+        BindOptions(builder.Configuration));
 
     var host = builder.Build();
     var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("SpiderEyes.Startup");
@@ -114,8 +116,14 @@ static void ConfigureCoreServices(IServiceCollection services)
     services.AddSingleton<BrowserToolExecutor>();
 }
 
-static void ConfigureToolCatalog(IMcpServerBuilder builder)
+static void ConfigureToolCatalog(IMcpServerBuilder builder, SpiderEyesOptions options)
 {
+    if (options.Features.ClaudeCompatibleToolCatalog)
+    {
+        builder.WithTools<ClaudeCompatibleBrowserTools>();
+        return;
+    }
+
     builder
         .WithTools<CoreBrowserTools>()
         .WithTools<NetworkStorageBrowserTools>()
