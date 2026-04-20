@@ -207,6 +207,11 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task McpServer_ListsTools_AndResponds_OverStdio()
     {
+        if (!_integrationEnabled)
+        {
+            return;
+        }
+
         var artifactRoot = Path.Combine(Path.GetTempPath(), "SpiderEyes.Tests.Stdio", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(artifactRoot);
         var (serverCommand, serverArguments) = GetServerCommandArguments(stdio: true);
@@ -274,7 +279,9 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
 
     private static (string Command, string[] Arguments) GetServerCommandArguments(bool stdio)
     {
-        var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "SpiderEyes.Server", "bin", "Debug", "net8.0"));
+        var configuration = Path.GetFileName(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
+            ?? "Debug";
+        var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "SpiderEyes.Server", "bin", configuration, "net8.0"));
         var dllPath = Path.Combine(binRoot, "SpiderEyes.Server.dll");
         var exePath = Path.Combine(binRoot, OperatingSystem.IsWindows() ? "SpiderEyes.Server.exe" : "SpiderEyes.Server");
         var transportArguments = stdio ? ["--stdio"] : Array.Empty<string>();
