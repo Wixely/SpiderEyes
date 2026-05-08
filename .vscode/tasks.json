@@ -7,7 +7,7 @@
       "command": "dotnet",
       "args": [
         "restore",
-        "${workspaceFolder}/SpiderEyes.sln"
+        "${workspaceFolder}/PlaywrightMCPSharp.sln"
       ],
       "problemMatcher": "$msCompile"
     },
@@ -17,7 +17,7 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/SpiderEyes.sln",
+        "${workspaceFolder}/PlaywrightMCPSharp.sln",
         "-c",
         "Debug"
       ],
@@ -35,7 +35,7 @@
       "args": [
         "run",
         "--project",
-        "${workspaceFolder}/src/SpiderEyes.Server/SpiderEyes.Server.csproj",
+        "${workspaceFolder}/src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj",
         "--no-build"
       ],
       "dependsOn": "build",
@@ -44,8 +44,8 @@
         "env": {
           "DOTNET_ENVIRONMENT": "Development",
           "ASPNETCORE_ENVIRONMENT": "Development",
-          "SpiderEyes__Server__Host": "127.0.0.1",
-          "SpiderEyes__Server__Port": "8931"
+          "PlaywrightMCPSharp__Server__Host": "127.0.0.1",
+          "PlaywrightMCPSharp__Server__Port": "8931"
         }
       }
     },
@@ -56,7 +56,7 @@
       "args": [
         "run",
         "--project",
-        "${workspaceFolder}/src/SpiderEyes.Server/SpiderEyes.Server.csproj",
+        "${workspaceFolder}/src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj",
         "--no-build",
         "--",
         "--stdio"
@@ -76,7 +76,7 @@
       "command": "dotnet",
       "args": [
         "test",
-        "${workspaceFolder}/SpiderEyes.sln",
+        "${workspaceFolder}/PlaywrightMCPSharp.sln",
         "-c",
         "Debug",
         "--no-build"
@@ -93,7 +93,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/playwright.ps1",
+        "${workspaceFolder}/src/PlaywrightMCPSharp.Server/bin/Debug/net8.0/playwright.ps1",
         "install",
         "chromium"
       ],

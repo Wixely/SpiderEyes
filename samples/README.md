@@ -1,22 +1,22 @@
 # MCP Config Samples
 
-These samples show how to connect local SpiderEyes instances to common MCP clients.
+These samples show how to connect local PlaywrightMCPSharp instances to common MCP clients.
 
 Assumptions:
 
 - You are running on Windows.
-- This repo has already been built with `dotnet build SpiderEyes.sln -c Debug`.
-- Replace `C:\\ABSOLUTE\\PATH\\TO\\SpiderEyes` in stdio samples with your actual local repo path.
-- HTTP samples assume SpiderEyes is already running at `http://127.0.0.1:8931/mcp`.
+- This repo has already been built with `dotnet build PlaywrightMCPSharp.sln -c Debug`.
+- Replace `C:\\ABSOLUTE\\PATH\\TO\\PlaywrightMCPSharp` in stdio samples with your actual local repo path.
+- HTTP samples assume PlaywrightMCPSharp is already running at `http://127.0.0.1:8931/mcp`.
 
 Startup mode:
 
-- Use stdio samples when you want the client to launch SpiderEyes itself.
-- Use HTTP samples when you want to run SpiderEyes separately with `dotnet run --project .\\src\\SpiderEyes.Server`.
+- Use stdio samples when you want the client to launch PlaywrightMCPSharp itself.
+- Use HTTP samples when you want to run PlaywrightMCPSharp separately with `dotnet run --project .\\src\\PlaywrightMCPSharp.Server`.
 - For stdio, the underlying command is:
 
 ```powershell
-dotnet C:\ABSOLUTE\PATH\TO\SpiderEyes\src\SpiderEyes.Server\bin\Debug\net8.0\SpiderEyes.Server.dll --stdio
+dotnet C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\PlaywrightMCPSharp.Server.dll --stdio
 ```
 
 Sample files:

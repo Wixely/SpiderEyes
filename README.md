@@ -1,10 +1,12 @@
-# SpiderEyes
+# PlaywrightMCPSharp
 
-`SpiderEyes` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. It does not require Node.js or Python to run the server. Uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
+`PlaywrightMCPSharp` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. It does not require Node.js or Python to run the server. Uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
 
-The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. SpiderEyes itself still does not require a separate Node.js or Python install, because it uses Playwright for .NET rather than the Node.js Playwright package or a Python wrapper.
+Previously called SpiderEyes.
 
-## Why SpiderEyes
+The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. PlaywrightMCPSharp itself still does not require a separate Node.js or Python install, because it uses Playwright for .NET rather than the Node.js Playwright package or a Python wrapper.
+
+## Why PlaywrightMCPSharp
 
 - No Node.js required to run the MCP server.
 - No Python required to run the MCP server.
@@ -23,8 +25,8 @@ The application ships with the Playwright .NET library, but it does not bundle t
 
 ## Repo layout
 
-- `src/SpiderEyes.Server`: MCP server host, Playwright session runtime, tool implementations
-- `tests/SpiderEyes.Server.Tests`: unit tests plus end-to-end MCP integration tests
+- `src/PlaywrightMCPSharp.Server`: MCP server host, Playwright session runtime, tool implementations
+- `tests/PlaywrightMCPSharp.Server.Tests`: unit tests plus end-to-end MCP integration tests
 - `Directory.Packages.props`: central package versions
 - `NuGet.config`: repo-local NuGet source pinning to `nuget.org`
 
@@ -46,13 +48,13 @@ dotnet build
 2. Install the Playwright browser used by the server:
 
 ```powershell
-powershell .\src\SpiderEyes.Server\bin\Debug\net8.0\playwright.ps1 install chromium
+powershell .\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\playwright.ps1 install chromium
 ```
 
 3. Run the server over HTTP:
 
 ```powershell
-dotnet run --project .\src\SpiderEyes.Server
+dotnet run --project .\src\PlaywrightMCPSharp.Server
 ```
 
 4. Check health:
@@ -64,46 +66,46 @@ curl http://127.0.0.1:8931/healthz
 For stdio instead of HTTP:
 
 ```powershell
-dotnet run --project .\src\SpiderEyes.Server -- --stdio
+dotnet run --project .\src\PlaywrightMCPSharp.Server -- --stdio
 ```
 
 For MCP client configs, prefer launching the built server directly after `dotnet build`:
 
 ```powershell
-dotnet .\src\SpiderEyes.Server\bin\Debug\net8.0\SpiderEyes.Server.dll --stdio
+dotnet .\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\PlaywrightMCPSharp.Server.dll --stdio
 ```
 
 ## Windows Service
 
-For long-running local HTTP hosting on Windows, SpiderEyes can run as a Windows Service.
+For long-running local HTTP hosting on Windows, PlaywrightMCPSharp can run as a Windows Service.
 
 1. Publish the server:
 
 ```powershell
-dotnet publish .\src\SpiderEyes.Server -c Release -r win-x64 --self-contained false
+dotnet publish .\src\PlaywrightMCPSharp.Server -c Release -r win-x64 --self-contained false
 ```
 
 2. Create the service pointing at the published executable:
 
 ```powershell
-sc.exe create SpiderEyes binPath= "C:\ABSOLUTE\PATH\TO\SpiderEyes.Server.exe" start= auto
+sc.exe create PlaywrightMCPSharp binPath= "C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp.Server.exe" start= auto
 ```
 
 3. Start it:
 
 ```powershell
-sc.exe start SpiderEyes
+sc.exe start PlaywrightMCPSharp
 ```
 
-The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `SpiderEyes__...` environment variables for the service.
+The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `PlaywrightMCPSharp__...` environment variables for the service.
 
 ## Docker
 
 The repo includes a basic `Dockerfile` for HTTP-mode hosting:
 
 ```powershell
-docker build -t spidereyes .
-docker run --rm -p 8931:8931 spidereyes
+docker build -t playwrightmcpsharp .
+docker run --rm -p 8931:8931 playwrightmcpsharp
 ```
 
 By default the container listens on `http://0.0.0.0:8931/mcp`.
@@ -125,13 +127,13 @@ The repo includes a `.vscode` workspace setup so you can build, run, test, and d
 - `Terminal > Run Task > run-stdio`: starts the MCP server in stdio mode
 - `Terminal > Run Task > test`: runs the test suite
 - `Terminal > Run Task > install-playwright-chromium`: installs the Playwright Chromium runtime
-- `F5`: launches `Debug SpiderEyes Server`
+- `F5`: launches `Debug PlaywrightMCPSharp Server`
 
-The repo includes both `Debug SpiderEyes Server` for HTTP and `Debug SpiderEyes Server (stdio)` for local spawned-MCP debugging.
+The repo includes both `Debug PlaywrightMCPSharp Server` for HTTP and `Debug PlaywrightMCPSharp Server (stdio)` for local spawned-MCP debugging.
 
 ## Configuration
 
-Settings live under `SpiderEyes` in `appsettings.json` and can be overridden with environment variables such as `SpiderEyes__Server__Port=9000`.
+Settings live under `PlaywrightMCPSharp` in `appsettings.json` and can be overridden with environment variables such as `PlaywrightMCPSharp__Server__Port=9000`.
 
 ### Transport modes
 
@@ -150,7 +152,7 @@ You can also override transport from the command line with `--stdio` or `--http`
 
 ```json
 {
-  "SpiderEyes": {
+  "PlaywrightMCPSharp": {
     "Server": {
       "Transport": "Http",
       "Host": "0.0.0.0",
@@ -174,7 +176,7 @@ You can also override transport from the command line with `--stdio` or `--http`
 
 ```json
 {
-  "SpiderEyes": {
+  "PlaywrightMCPSharp": {
     "Server": {
       "Transport": "Http",
       "Host": "0.0.0.0",
@@ -202,7 +204,7 @@ http://127.0.0.1:8931/mcp
 For stdio clients, launch the server command directly:
 
 ```text
-dotnet run --project .\src\SpiderEyes.Server -- --stdio
+dotnet run --project .\src\PlaywrightMCPSharp.Server -- --stdio
 ```
 
 For desktop/editor MCP clients that store a command plus args, using the built `dll` is usually more reliable than `dotnet run`:
@@ -211,13 +213,13 @@ For desktop/editor MCP clients that store a command plus args, using the built `
 {
   "command": "dotnet",
   "args": [
-    "C:\\path\\to\\SpiderEyes\\src\\SpiderEyes.Server\\bin\\Debug\\net8.0\\SpiderEyes.Server.dll",
+    "C:\\path\\to\\PlaywrightMCPSharp\\src\\PlaywrightMCPSharp.Server\\bin\\Debug\\net8.0\\PlaywrightMCPSharp.Server.dll",
     "--stdio"
   ]
 }
 ```
 
-If the client supports roots, SpiderEyes requests them and restricts file access to those roots plus the per-session artifact directory. If the client does not support roots, SpiderEyes falls back to the current working directory.
+If the client supports roots, PlaywrightMCPSharp requests them and restricts file access to those roots plus the per-session artifact directory. If the client does not support roots, PlaywrightMCPSharp falls back to the current working directory.
 
 ## Tool groups
 
@@ -335,7 +337,7 @@ The integration tests require Playwright browsers to be installed first.
 ## Security notes
 
 - AI ARIA snapshots are page-derived input and should be treated as untrusted. Prompt injection can be present in page text and accessibility names.
-- `browser_run_code` executes arbitrary C# against a live browser session. Disable it with `SpiderEyes__Features__EnableRunCode=false` if that is too much power for your client.
+- `browser_run_code` executes arbitrary C# against a live browser session. Disable it with `PlaywrightMCPSharp__Features__EnableRunCode=false` if that is too much power for your client.
 - `RemoteNoAuth` is intentionally dangerous and should not be exposed on the public internet.
 - File operations are root-scoped by default. `AllowUnrestrictedFileAccess=true` removes that guardrail.
 - `browser_install_runtime` downloads executables onto the host machine. `withDependencies=true` may also attempt OS-level dependency installation when Playwright supports it.

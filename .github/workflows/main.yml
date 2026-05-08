@@ -18,20 +18,20 @@ jobs:
       matrix:
         include:
           - rid: win-x64
-            base_name: SpiderEyes-win-x64
-            artifact_name: SpiderEyes-win-x64
+            base_name: PlaywrightMCPSharp-win-x64
+            artifact_name: PlaywrightMCPSharp-win-x64
             self_contained: false
           - rid: linux-x64
-            base_name: SpiderEyes-linux-x64
-            artifact_name: SpiderEyes-linux-x64
+            base_name: PlaywrightMCPSharp-linux-x64
+            artifact_name: PlaywrightMCPSharp-linux-x64
             self_contained: false
           - rid: win-x64
-            base_name: SpiderEyes-win-x64-standalone
-            artifact_name: SpiderEyes-win-x64-standalone
+            base_name: PlaywrightMCPSharp-win-x64-standalone
+            artifact_name: PlaywrightMCPSharp-win-x64-standalone
             self_contained: true
           - rid: linux-x64
-            base_name: SpiderEyes-linux-x64-standalone
-            artifact_name: SpiderEyes-linux-x64-standalone
+            base_name: PlaywrightMCPSharp-linux-x64-standalone
+            artifact_name: PlaywrightMCPSharp-linux-x64-standalone
             self_contained: true
 
     steps:
@@ -53,17 +53,17 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore SpiderEyes.sln
+        run: dotnet restore PlaywrightMCPSharp.sln
 
       - name: Build
-        run: dotnet build SpiderEyes.sln -c Release --no-restore
+        run: dotnet build PlaywrightMCPSharp.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test SpiderEyes.sln -c Release --no-build --verbosity normal
+        run: dotnet test PlaywrightMCPSharp.sln -c Release --no-build --verbosity normal
 
       - name: Publish ${{ matrix.rid }}
         run: >
-          dotnet publish src/SpiderEyes.Server/SpiderEyes.Server.csproj
+          dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj
           -c Release
           -r ${{ matrix.rid }}
           --self-contained ${{ matrix.self_contained }}
@@ -118,8 +118,8 @@ jobs:
         shell: bash
         run: |
           gh release upload "${GITHUB_REF_NAME}" \
-            release-assets/SpiderEyes-win-x64/SpiderEyes-win-x64-${PACKAGE_VERSION}.zip \
-            release-assets/SpiderEyes-linux-x64/SpiderEyes-linux-x64-${PACKAGE_VERSION}.zip \
-            release-assets/SpiderEyes-win-x64-standalone/SpiderEyes-win-x64-standalone-${PACKAGE_VERSION}.zip \
-            release-assets/SpiderEyes-linux-x64-standalone/SpiderEyes-linux-x64-standalone-${PACKAGE_VERSION}.zip \
+            release-assets/PlaywrightMCPSharp-win-x64/PlaywrightMCPSharp-win-x64-${PACKAGE_VERSION}.zip \
+            release-assets/PlaywrightMCPSharp-linux-x64/PlaywrightMCPSharp-linux-x64-${PACKAGE_VERSION}.zip \
+            release-assets/PlaywrightMCPSharp-win-x64-standalone/PlaywrightMCPSharp-win-x64-standalone-${PACKAGE_VERSION}.zip \
+            release-assets/PlaywrightMCPSharp-linux-x64-standalone/PlaywrightMCPSharp-linux-x64-standalone-${PACKAGE_VERSION}.zip \
             --clobber

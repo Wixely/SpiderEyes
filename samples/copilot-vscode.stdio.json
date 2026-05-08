@@ -1,10 +1,10 @@
 {
   "servers": {
-    "spidereyes": {
+    "playwrightmcpsharp": {
       "type": "stdio",
       "command": "dotnet",
       "args": [
-        "C:\\ABSOLUTE\\PATH\\TO\\SpiderEyes\\src\\SpiderEyes.Server\\bin\\Debug\\net8.0\\SpiderEyes.Server.dll",
+        "C:\\ABSOLUTE\\PATH\\TO\\PlaywrightMCPSharp\\src\\PlaywrightMCPSharp.Server\\bin\\Debug\\net8.0\\PlaywrightMCPSharp.Server.dll",
         "--stdio"
       ]
     }

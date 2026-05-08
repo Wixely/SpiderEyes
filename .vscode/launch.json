@@ -2,11 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug SpiderEyes Server",
+      "name": "Debug PlaywrightMCPSharp Server",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/SpiderEyes.Server.dll",
+      "program": "${workspaceFolder}/src/PlaywrightMCPSharp.Server/bin/Debug/net8.0/PlaywrightMCPSharp.Server.dll",
       "args": [],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
@@ -14,16 +14,16 @@
       "env": {
         "DOTNET_ENVIRONMENT": "Development",
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "SpiderEyes__Server__Host": "127.0.0.1",
-        "SpiderEyes__Server__Port": "8931"
+        "PlaywrightMCPSharp__Server__Host": "127.0.0.1",
+        "PlaywrightMCPSharp__Server__Port": "8931"
       }
     },
     {
-      "name": "Debug SpiderEyes Server (stdio)",
+      "name": "Debug PlaywrightMCPSharp Server (stdio)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/SpiderEyes.Server/bin/Debug/net8.0/SpiderEyes.Server.dll",
+      "program": "${workspaceFolder}/src/PlaywrightMCPSharp.Server/bin/Debug/net8.0/PlaywrightMCPSharp.Server.dll",
       "args": [
         "--stdio"
       ],
@@ -36,7 +36,7 @@
       }
     },
     {
-      "name": "Attach to SpiderEyes Server",
+      "name": "Attach to PlaywrightMCPSharp Server",
       "type": "coreclr",
       "request": "attach"
     }
