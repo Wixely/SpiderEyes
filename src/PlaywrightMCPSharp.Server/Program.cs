@@ -9,7 +9,7 @@ using Serilog.Events;
 
 const string ServiceName = "PlaywrightMCPSharp";
 const string EnvironmentPrefix = "PLAYWRIGHTMCP_";
-var contentRoot = AppContext.BaseDirectory;
+var contentRoot = GetContentRoot();
 McpSharpIcon.ApplyConsoleWindowIcon();
 
 Log.Logger = new LoggerConfiguration()
@@ -64,7 +64,7 @@ static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? t
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     {
         Args = args,
-        ContentRootPath = AppContext.BaseDirectory,
+        ContentRootPath = GetContentRoot(),
     });
     ConfigurePlaywrightConfiguration(builder.Configuration, args);
     builder.Host.UseWindowsService(options =>
@@ -132,7 +132,7 @@ static async Task RunStdioAsync(string[] args, PlaywrightMCPSharpTransportMode? 
     var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
     {
         Args = args,
-        ContentRootPath = AppContext.BaseDirectory,
+        ContentRootPath = GetContentRoot(),
     });
     ConfigurePlaywrightConfiguration(builder.Configuration, args);
     ApplyTransportOverride(builder.Configuration, transportOverride);
@@ -143,15 +143,22 @@ static async Task RunStdioAsync(string[] args, PlaywrightMCPSharpTransportMode? 
     builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
     ConfigureCoreServices(builder.Services);
+    var stdioOptions = BindOptions(builder.Configuration);
     ConfigureToolCatalog(
         builder.Services
             .AddMcpServer()
             .WithStdioServerTransport(),
-        BindOptions(builder.Configuration));
+        stdioOptions);
 
     var host = builder.Build();
-    var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("PlaywrightMCPSharp.Startup");
-    logger.LogInformation("PlaywrightMCPSharp is running over stdio transport.");
+    LogStartup(
+        ServiceName,
+        "stdio",
+        "Stdio",
+        Environment.UserInteractive ? "Console" : "NonInteractive",
+        GetContentRoot(),
+        $"Security: {stdioOptions.Security.Mode}",
+        $"Tool count: {GetEnabledToolNames(stdioOptions).Count}");
 
     await host.RunAsync();
 }
@@ -163,16 +170,24 @@ static void ConfigurePlaywrightConfiguration(ConfigurationManager configuration,
 
     configuration.Sources.Clear();
     configuration
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+        .SetBasePath(GetContentRoot())
+        .AddJsonFile(ResolveConfigFile(GetContentRoot(), "appsettings.json"), optional: true, reloadOnChange: true);
 
     if (!string.IsNullOrWhiteSpace(environmentName))
     {
-        configuration.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: true);
+        configuration.AddJsonFile(ResolveConfigFile(GetContentRoot(), $"appsettings.{environmentName}.json"), optional: true, reloadOnChange: true);
+    }
+
+    configuration.AddJsonFile(ResolveConfigFile(GetContentRoot(), "appsettings.Local.json"), optional: true, reloadOnChange: true);
+    configuration.AddJsonFile(ResolveConfigFile(GetContentRoot(), "PlaywrightMCPSharp.json"), optional: true, reloadOnChange: true);
+
+    if (!string.IsNullOrWhiteSpace(environmentName))
+    {
+        configuration.AddJsonFile(ResolveConfigFile(GetContentRoot(), $"PlaywrightMCPSharp.{environmentName}.json"), optional: true, reloadOnChange: true);
     }
 
     configuration
-        .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true)
+        .AddJsonFile(ResolveConfigFile(GetContentRoot(), "PlaywrightMCPSharp.Local.json"), optional: true, reloadOnChange: true)
         .AddEnvironmentVariables()
         .AddEnvironmentVariables(prefix: EnvironmentPrefix);
 
@@ -221,15 +236,22 @@ static IConfigurationRoot BuildBootstrapConfiguration(string[] args)
         ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
     var builder = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+        .SetBasePath(GetContentRoot())
+        .AddJsonFile(ResolveConfigFile(GetContentRoot(), "appsettings.json"), optional: true, reloadOnChange: false);
 
     if (!string.IsNullOrWhiteSpace(environmentName))
     {
-        builder.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
+        builder.AddJsonFile(ResolveConfigFile(GetContentRoot(), $"appsettings.{environmentName}.json"), optional: true, reloadOnChange: false);
     }
 
-    builder.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+    builder.AddJsonFile(ResolveConfigFile(GetContentRoot(), "appsettings.Local.json"), optional: true, reloadOnChange: false);
+    builder.AddJsonFile(ResolveConfigFile(GetContentRoot(), "PlaywrightMCPSharp.json"), optional: true, reloadOnChange: false);
+    if (!string.IsNullOrWhiteSpace(environmentName))
+    {
+        builder.AddJsonFile(ResolveConfigFile(GetContentRoot(), $"PlaywrightMCPSharp.{environmentName}.json"), optional: true, reloadOnChange: false);
+    }
+
+    builder.AddJsonFile(ResolveConfigFile(GetContentRoot(), "PlaywrightMCPSharp.Local.json"), optional: true, reloadOnChange: false);
     builder.AddEnvironmentVariables();
     builder.AddEnvironmentVariables(prefix: EnvironmentPrefix);
     if (args.Length > 0)
@@ -245,6 +267,29 @@ static PlaywrightMCPSharpOptions BindOptions(IConfiguration configuration)
     var options = new PlaywrightMCPSharpOptions();
     configuration.GetSection(PlaywrightMCPSharpOptions.SectionName).Bind(options);
     return options;
+}
+
+static string GetContentRoot() =>
+    Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
+
+static string ResolveConfigFile(string contentRoot, string fileName)
+{
+    if (File.Exists(Path.Combine(contentRoot, fileName)))
+    {
+        return fileName;
+    }
+
+    try
+    {
+        var match = Directory.EnumerateFiles(contentRoot, "*", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(path => string.Equals(Path.GetFileName(path), fileName, StringComparison.OrdinalIgnoreCase));
+
+        return match is null ? fileName : Path.GetFileName(match);
+    }
+    catch (DirectoryNotFoundException)
+    {
+        return fileName;
+    }
 }
 
 static void ApplyTransportOverride(ConfigurationManager configuration, PlaywrightMCPSharpTransportMode? transportOverride)
@@ -308,7 +353,7 @@ static Serilog.ILogger CreateStdioLogger()
             outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
             standardErrorFromLevel: LogEventLevel.Verbose)
         .WriteTo.File(
-            Path.Combine(AppContext.BaseDirectory, "logs", "playwrightmcp-.log"),
+            Path.Combine(GetContentRoot(), "logs", "playwrightmcp-.log"),
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: 14,
             fileSizeLimitBytes: 52428800,
@@ -322,20 +367,34 @@ static void WriteHttpStartupDiagnostics(PlaywrightMCPSharpOptions options, strin
     var toolNames = GetEnabledToolNames(options);
     var publiclyReachable = IsPublicBinding(bindHost, options.Security.Mode);
 
-    Console.WriteLine($"{ServiceName} HTTP startup");
-    Console.WriteLine($"  Endpoint: http://{bindHost}:{bindPort}{options.Server.Route}");
-    Console.WriteLine($"  Binding: {(publiclyReachable ? "public/network" : "local-only")} ({bindHost}:{bindPort})");
-    Console.WriteLine($"  Security: {options.Security.Mode}");
-    Console.WriteLine($"  Claude compatibility mode: {options.Features.ClaudeCompatibleToolCatalog}");
-    Console.WriteLine($"  Run code enabled: {options.Features.EnableRunCode}");
-    Console.WriteLine($"  Unrestricted file access: {options.Features.AllowUnrestrictedFileAccess}");
-    Console.WriteLine($"  Browser: {options.Browser.BrowserType}, headless={options.Browser.Headless}, channel={options.Browser.Channel ?? "(default)"}");
-    Console.WriteLine($"  Session idle timeout: {options.Session.IdleTimeout}");
-    Console.WriteLine($"  Tool count: {toolNames.Count}");
-    foreach (var toolName in toolNames)
+    LogStartup(
+        ServiceName,
+        $"http://{bindHost}:{bindPort}{options.Server.Route}",
+        "HTTP",
+        Environment.UserInteractive ? "Console" : "NonInteractive",
+        GetContentRoot(),
+        $"Binding: {(publiclyReachable ? "public/network" : "local-only")} ({bindHost}:{bindPort})",
+        $"Security: {options.Security.Mode}",
+        $"Claude compatibility: {options.Features.ClaudeCompatibleToolCatalog}",
+        $"Run code enabled: {options.Features.EnableRunCode}",
+        $"Unrestricted file access: {options.Features.AllowUnrestrictedFileAccess}",
+        $"Browser: {options.Browser.BrowserType}, headless={options.Browser.Headless}, channel={options.Browser.Channel ?? "(default)"}",
+        $"Session idle timeout: {options.Session.IdleTimeout}",
+        $"Tool count: {toolNames.Count}");
+}
+
+static void LogStartup(string serviceName, string endpoint, string transport, string mode, string contentRoot, params string[] details)
+{
+    var startupLog = Log.ForContext("SourceContext", serviceName + ".Startup");
+    startupLog.Information("{ServiceName} startup", serviceName);
+    startupLog.Information("  Endpoint: {Endpoint}", endpoint);
+    startupLog.Information("  Transport: {Transport}", transport);
+    startupLog.Information("  Mode: {Mode}", mode);
+    foreach (var detail in details)
     {
-        Console.WriteLine($"    - {toolName}");
+        startupLog.Information("  {Detail}", detail);
     }
+    startupLog.Information("  Content root: {ContentRoot}", contentRoot);
 }
 
 static List<string> GetEnabledToolNames(PlaywrightMCPSharpOptions options)

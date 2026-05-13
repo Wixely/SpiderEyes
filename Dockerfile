@@ -8,11 +8,23 @@ COPY src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj src/Playwrig
 RUN dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj
 
 COPY . .
-RUN dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
+ARG TARGETARCH
+RUN arch="${TARGETARCH:-amd64}"; \
+    if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
+    dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
     -c Release \
     --no-restore \
+    --arch "$arch" \
+    --self-contained false \
     -o /app/publish \
-    /p:UseAppHost=false
+    -p:PublishSingleFile=true \
+    -p:EnableCompressionInSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:IncludeAllContentForSelfExtract=true \
+    -p:IsTransformWebConfigDisabled=true \
+    -p:StaticWebAssetsEnabled=false \
+    -p:DebugType=none \
+    -p:DebugSymbols=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
@@ -33,4 +45,4 @@ USER $APP_UID
 EXPOSE 5704
 VOLUME ["/app/logs"]
 
-ENTRYPOINT ["dotnet", "PlaywrightMCPSharp.Server.dll"]
+ENTRYPOINT ["./PlaywrightMCPSharp"]
