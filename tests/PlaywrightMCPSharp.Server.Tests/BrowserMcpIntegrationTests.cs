@@ -282,8 +282,8 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
         var configuration = Path.GetFileName(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
             ?? "Debug";
         var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "PlaywrightMCPSharp.Server", "bin", configuration, "net10.0"));
-        var dllPath = Path.Combine(binRoot, "PlaywrightMCPSharp.Server.dll");
-        var exePath = Path.Combine(binRoot, OperatingSystem.IsWindows() ? "PlaywrightMCPSharp.Server.exe" : "PlaywrightMCPSharp.Server");
+        var dllPath = Path.Combine(binRoot, "PlaywrightMCPSharp.dll");
+        var exePath = Path.Combine(binRoot, OperatingSystem.IsWindows() ? "PlaywrightMCPSharp.exe" : "PlaywrightMCPSharp");
         var transportArguments = stdio ? ["--stdio"] : Array.Empty<string>();
 
         if (File.Exists(exePath))
