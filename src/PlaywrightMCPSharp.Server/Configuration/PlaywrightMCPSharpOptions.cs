@@ -30,6 +30,8 @@ public sealed class ServerOptions
     [Required]
     public string Route { get; set; } = "/mcp";
 
+    public string Password { get; set; } = string.Empty;
+
     public List<string> AllowedHosts { get; set; } = ["127.0.0.1", "localhost"];
 
     public List<string> AllowedOrigins { get; set; } = [];

@@ -10,6 +10,7 @@ using Serilog.Events;
 const string ServiceName = "PlaywrightMCPSharp";
 const string EnvironmentPrefix = "PLAYWRIGHTMCP_";
 var contentRoot = AppContext.BaseDirectory;
+McpSharpIcon.ApplyConsoleWindowIcon();
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -109,6 +110,7 @@ static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? t
 
     app.UseMiddleware<McpSecurityMiddleware>();
 
+    app.MapFavicon();
     app.MapGet("/healthz", () => Results.Ok(new
     {
         status = "ok",

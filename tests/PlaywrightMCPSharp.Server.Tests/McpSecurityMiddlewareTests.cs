@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -99,6 +100,103 @@ public sealed class McpSecurityMiddlewareTests
         await middleware.InvokeAsync(context);
 
         Assert.True(calledNext);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_Requires_McpPassword_WhenConfigured()
+    {
+        var calledNext = false;
+        var options = new PlaywrightMCPSharpOptions
+        {
+            Server = new ServerOptions
+            {
+                Route = "/mcp",
+                Password = "mcp-password",
+            },
+        };
+
+        var middleware = CreateMiddleware(
+            options,
+            _ =>
+            {
+                calledNext = true;
+                return Task.CompletedTask;
+            });
+
+        var context = CreateLocalMcpContext();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        Assert.False(calledNext);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_Allows_McpPassword_BearerHeader()
+    {
+        var calledNext = false;
+        var options = new PlaywrightMCPSharpOptions
+        {
+            Server = new ServerOptions
+            {
+                Route = "/mcp",
+                Password = "mcp-password",
+            },
+        };
+
+        var middleware = CreateMiddleware(
+            options,
+            _ =>
+            {
+                calledNext = true;
+                return Task.CompletedTask;
+            });
+
+        var context = CreateLocalMcpContext();
+        context.Request.Headers.Authorization = "Bearer mcp-password";
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(calledNext);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_Allows_McpPassword_BasicPassword()
+    {
+        var calledNext = false;
+        var options = new PlaywrightMCPSharpOptions
+        {
+            Server = new ServerOptions
+            {
+                Route = "/mcp",
+                Password = "mcp-password",
+            },
+        };
+
+        var middleware = CreateMiddleware(
+            options,
+            _ =>
+            {
+                calledNext = true;
+                return Task.CompletedTask;
+            });
+
+        var context = CreateLocalMcpContext();
+        var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes("mcp:mcp-password"));
+        context.Request.Headers.Authorization = $"Basic {basic}";
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(calledNext);
+    }
+
+    private static DefaultHttpContext CreateLocalMcpContext()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/mcp";
+        context.Request.Host = new HostString("127.0.0.1");
+        context.Connection.RemoteIpAddress = IPAddress.Loopback;
+        return context;
     }
 
     private static McpSecurityMiddleware CreateMiddleware(PlaywrightMCPSharpOptions options, RequestDelegate next)

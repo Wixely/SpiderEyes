@@ -135,6 +135,8 @@ The repo includes both `Debug PlaywrightMCPSharp Server` for HTTP and `Debug Pla
 
 Settings live under `PlaywrightMCPSharp` in `appsettings.json` and can be overridden with environment variables such as `PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=9000`.
 
+`PlaywrightMCPSharp:Server:Password` is blank by default. Set it to require an MCP endpoint password; clients may send `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`. This password gate is separate from the security mode below.
+
 ### Transport modes
 
 - `Http`: Streamable HTTP on `/mcp` plus `/healthz`

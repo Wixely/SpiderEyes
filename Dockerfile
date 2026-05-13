@@ -23,6 +23,7 @@ ENV DOTNET_ENVIRONMENT=Production \
     PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host=0.0.0.0 \
     PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=5704 \
     PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Transport=Http \
+    PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Password= \
     PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Headless=true
 
 RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app

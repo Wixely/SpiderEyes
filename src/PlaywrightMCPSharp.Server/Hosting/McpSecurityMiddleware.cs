@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using PlaywrightMCPSharp.Server.Configuration;
@@ -7,6 +9,8 @@ namespace PlaywrightMCPSharp.Server.Hosting;
 
 public sealed class McpSecurityMiddleware
 {
+    private const string PasswordHeaderName = "X-MCP-Password";
+
     private readonly RequestDelegate _next;
     private readonly IOptionsMonitor<PlaywrightMCPSharpOptions> _optionsMonitor;
     private readonly ILogger<McpSecurityMiddleware> _logger;
@@ -41,6 +45,14 @@ public sealed class McpSecurityMiddleware
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsync("Origin rejected.");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.Server.Password) && !PasswordMatches(context.Request, options.Server.Password))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.Headers.WWWAuthenticate = "Bearer, Basic";
+            await context.Response.WriteAsync("MCP password required.");
             return;
         }
 
@@ -116,5 +128,40 @@ public sealed class McpSecurityMiddleware
     private static bool IsLoopback(IPAddress? address)
     {
         return address is not null && IPAddress.IsLoopback(address);
+    }
+
+    private static bool PasswordMatches(HttpRequest request, string expected)
+    {
+        if (request.Headers.TryGetValue(PasswordHeaderName, out var passwordHeader)
+            && string.Equals(passwordHeader.ToString(), expected, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (!AuthenticationHeaderValue.TryParse(request.Headers.Authorization, out var auth))
+        {
+            return false;
+        }
+
+        if (string.Equals(auth.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(auth.Parameter, expected, StringComparison.Ordinal);
+        }
+
+        if (string.Equals(auth.Scheme, "Basic", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(auth.Parameter))
+        {
+            try
+            {
+                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(auth.Parameter));
+                var separator = decoded.IndexOf(':');
+                return separator >= 0 && string.Equals(decoded[(separator + 1)..], expected, StringComparison.Ordinal);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
+        return false;
     }
 }
