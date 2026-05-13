@@ -46,13 +46,13 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
             startInfo.ArgumentList.Add(argument);
         }
 
-        startInfo.Environment["PlaywrightMCPSharp__Server__Host"] = "127.0.0.1";
-        startInfo.Environment["PlaywrightMCPSharp__Server__Port"] = port.ToString();
-        startInfo.Environment["PlaywrightMCPSharp__Browser__Headless"] = "true";
-        startInfo.Environment["PlaywrightMCPSharp__Browser__Locale"] = "en-GB";
-        startInfo.Environment["PlaywrightMCPSharp__Browser__TimezoneId"] = "UTC";
-        startInfo.Environment["PlaywrightMCPSharp__Session__ArtifactRoot"] = artifactRoot;
-        startInfo.Environment["PlaywrightMCPSharp__Browser__DownloadsPath"] = Path.Combine(artifactRoot, "downloads");
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host"] = "127.0.0.1";
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port"] = port.ToString();
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Headless"] = "true";
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Locale"] = "en-GB";
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__TimezoneId"] = "UTC";
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Session__ArtifactRoot"] = artifactRoot;
+        startInfo.Environment["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__DownloadsPath"] = Path.Combine(artifactRoot, "downloads");
 
         _serverProcess = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start PlaywrightMCPSharp server process.");
         _serverProcess.OutputDataReceived += (_, eventArgs) =>
@@ -227,9 +227,9 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
                 {
                     ["DOTNET_ENVIRONMENT"] = "Development",
                     ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                    ["PlaywrightMCPSharp__Browser__Headless"] = "true",
-                    ["PlaywrightMCPSharp__Session__ArtifactRoot"] = artifactRoot,
-                    ["PlaywrightMCPSharp__Browser__DownloadsPath"] = Path.Combine(artifactRoot, "downloads"),
+                    ["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Headless"] = "true",
+                    ["PLAYWRIGHTMCP_PlaywrightMCPSharp__Session__ArtifactRoot"] = artifactRoot,
+                    ["PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__DownloadsPath"] = Path.Combine(artifactRoot, "downloads"),
                 },
                 ShutdownTimeout = TimeSpan.FromSeconds(10),
             }),
@@ -281,7 +281,7 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
     {
         var configuration = Path.GetFileName(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
             ?? "Debug";
-        var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "PlaywrightMCPSharp.Server", "bin", configuration, "net8.0"));
+        var binRoot = Path.GetFullPath(Path.Combine(GetWorkspaceRoot(), "src", "PlaywrightMCPSharp.Server", "bin", configuration, "net10.0"));
         var dllPath = Path.Combine(binRoot, "PlaywrightMCPSharp.Server.dll");
         var exePath = Path.Combine(binRoot, OperatingSystem.IsWindows() ? "PlaywrightMCPSharp.Server.exe" : "PlaywrightMCPSharp.Server");
         var transportArguments = stdio ? ["--stdio"] : Array.Empty<string>();

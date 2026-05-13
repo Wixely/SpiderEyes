@@ -7,7 +7,7 @@ Assumptions:
 - You are running on Windows.
 - This repo has already been built with `dotnet build PlaywrightMCPSharp.sln -c Debug`.
 - Replace `C:\\ABSOLUTE\\PATH\\TO\\PlaywrightMCPSharp` in stdio samples with your actual local repo path.
-- HTTP samples assume PlaywrightMCPSharp is already running at `http://127.0.0.1:8931/mcp`.
+- HTTP samples assume PlaywrightMCPSharp is already running at `http://127.0.0.1:5704/mcp`.
 
 Startup mode:
 
@@ -16,7 +16,7 @@ Startup mode:
 - For stdio, the underlying command is:
 
 ```powershell
-dotnet C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\PlaywrightMCPSharp.Server.dll --stdio
+dotnet C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp\src\PlaywrightMCPSharp.Server\bin\Debug\net10.0\PlaywrightMCPSharp.Server.dll --stdio
 ```
 
 Sample files:

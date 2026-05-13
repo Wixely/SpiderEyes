@@ -15,7 +15,7 @@ The application ships with the Playwright .NET library, but it does not bundle t
 
 ## What it does
 
-- Hosts a stateful Streamable HTTP MCP endpoint at `http://127.0.0.1:8931/mcp` by default.
+- Hosts a stateful Streamable HTTP MCP endpoint at `http://127.0.0.1:5704/mcp` by default.
 - Can also run as a single-session stdio MCP server for local spawned-client workflows.
 - Launches one isolated Playwright browser session per MCP session.
 - Exposes an official-like `browser_*` tool surface for navigation, snapshots, forms, storage, routing, tracing, verification, and coordinate-based mouse control.
@@ -32,7 +32,7 @@ The application ships with the Playwright .NET library, but it does not bundle t
 
 ## Requirements
 
-- .NET SDK 8.0+
+- .NET SDK 10.0+
 - Windows, macOS, or Linux supported by Playwright for .NET
 - One-time Playwright browser install after restore/build
 
@@ -48,7 +48,7 @@ dotnet build
 2. Install the Playwright browser used by the server:
 
 ```powershell
-powershell .\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\playwright.ps1 install chromium
+powershell .\src\PlaywrightMCPSharp.Server\bin\Debug\net10.0\playwright.ps1 install chromium
 ```
 
 3. Run the server over HTTP:
@@ -60,7 +60,7 @@ dotnet run --project .\src\PlaywrightMCPSharp.Server
 4. Check health:
 
 ```powershell
-curl http://127.0.0.1:8931/healthz
+curl http://127.0.0.1:5704/healthz
 ```
 
 For stdio instead of HTTP:
@@ -72,7 +72,7 @@ dotnet run --project .\src\PlaywrightMCPSharp.Server -- --stdio
 For MCP client configs, prefer launching the built server directly after `dotnet build`:
 
 ```powershell
-dotnet .\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\PlaywrightMCPSharp.Server.dll --stdio
+dotnet .\src\PlaywrightMCPSharp.Server\bin\Debug\net10.0\PlaywrightMCPSharp.Server.dll --stdio
 ```
 
 ## Windows Service
@@ -97,7 +97,7 @@ sc.exe create PlaywrightMCPSharp binPath= "C:\ABSOLUTE\PATH\TO\PlaywrightMCPShar
 sc.exe start PlaywrightMCPSharp
 ```
 
-The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `PlaywrightMCPSharp__...` environment variables for the service.
+The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `PLAYWRIGHTMCP_PlaywrightMCPSharp__...` environment variables for the service.
 
 ## Docker
 
@@ -105,10 +105,10 @@ The repo includes a basic `Dockerfile` for HTTP-mode hosting:
 
 ```powershell
 docker build -t playwrightmcpsharp .
-docker run --rm -p 8931:8931 playwrightmcpsharp
+docker run --rm -p 5704:5704 playwrightmcpsharp
 ```
 
-By default the container listens on `http://0.0.0.0:8931/mcp`.
+By default the container listens on `http://0.0.0.0:5704/mcp`.
 
 Notes:
 
@@ -133,7 +133,7 @@ The repo includes both `Debug PlaywrightMCPSharp Server` for HTTP and `Debug Pla
 
 ## Configuration
 
-Settings live under `PlaywrightMCPSharp` in `appsettings.json` and can be overridden with environment variables such as `PlaywrightMCPSharp__Server__Port=9000`.
+Settings live under `PlaywrightMCPSharp` in `appsettings.json` and can be overridden with environment variables such as `PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=9000`.
 
 ### Transport modes
 
@@ -156,7 +156,7 @@ You can also override transport from the command line with `--stdio` or `--http`
     "Server": {
       "Transport": "Http",
       "Host": "0.0.0.0",
-      "Port": 8931,
+      "Port": 5704,
       "Route": "/mcp",
       "AllowedHosts": [ "*" ],
       "AllowedOrigins": [ "https://your-client.example" ]
@@ -180,7 +180,7 @@ You can also override transport from the command line with `--stdio` or `--http`
     "Server": {
       "Transport": "Http",
       "Host": "0.0.0.0",
-      "Port": 8931,
+      "Port": 5704,
       "AllowedHosts": [ "*" ]
     },
     "Security": {
@@ -198,7 +198,7 @@ This mode is intentionally loud and unsafe. Use it only on a trusted network.
 For Streamable HTTP clients, point them at:
 
 ```text
-http://127.0.0.1:8931/mcp
+http://127.0.0.1:5704/mcp
 ```
 
 For stdio clients, launch the server command directly:
@@ -213,7 +213,7 @@ For desktop/editor MCP clients that store a command plus args, using the built `
 {
   "command": "dotnet",
   "args": [
-    "C:\\path\\to\\PlaywrightMCPSharp\\src\\PlaywrightMCPSharp.Server\\bin\\Debug\\net8.0\\PlaywrightMCPSharp.Server.dll",
+    "C:\\path\\to\\PlaywrightMCPSharp\\src\\PlaywrightMCPSharp.Server\\bin\\Debug\\net10.0\\PlaywrightMCPSharp.Server.dll",
     "--stdio"
   ]
 }
@@ -317,7 +317,7 @@ return new { title, url = page.Url };
 ## Manual smoke test
 
 1. Start the server.
-2. Connect an MCP Inspector or another Streamable HTTP MCP client to `http://127.0.0.1:8931/mcp`, or launch the same server with `--stdio` from a stdio-capable client.
+2. Connect an MCP Inspector or another Streamable HTTP MCP client to `http://127.0.0.1:5704/mcp`, or launch the same server with `--stdio` from a stdio-capable client.
 3. Call `browser_navigate` with `https://example.com`.
 4. Call `browser_snapshot` and confirm the returned snapshot contains `Example Domain`.
 5. Call `browser_take_screenshot` and confirm an image is written under `artifacts/<session-id>/`.
@@ -337,7 +337,7 @@ The integration tests require Playwright browsers to be installed first.
 ## Security notes
 
 - AI ARIA snapshots are page-derived input and should be treated as untrusted. Prompt injection can be present in page text and accessibility names.
-- `browser_run_code` executes arbitrary C# against a live browser session. Disable it with `PlaywrightMCPSharp__Features__EnableRunCode=false` if that is too much power for your client.
+- `browser_run_code` executes arbitrary C# against a live browser session. Disable it with `PLAYWRIGHTMCP_PlaywrightMCPSharp__Features__EnableRunCode=false` if that is too much power for your client.
 - `RemoteNoAuth` is intentionally dangerous and should not be exposed on the public internet.
 - File operations are root-scoped by default. `AllowUnrestrictedFileAccess=true` removes that guardrail.
 - `browser_install_runtime` downloads executables onto the host machine. `withDependencies=true` may also attempt OS-level dependency installation when Playwright supports it.

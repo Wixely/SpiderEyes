@@ -45,7 +45,7 @@ public sealed class McpSecurityMiddlewareTests
             Server = new ServerOptions
             {
                 Host = "127.0.0.1",
-                Port = 8931,
+                Port = 5704,
                 Route = "/mcp",
                 AllowedHosts = ["127.0.0.1"],
             },
@@ -76,7 +76,7 @@ public sealed class McpSecurityMiddlewareTests
             Server = new ServerOptions
             {
                 Host = "127.0.0.1",
-                Port = 8931,
+                Port = 5704,
                 Route = "/mcp",
                 AllowedHosts = ["127.0.0.1"],
             },

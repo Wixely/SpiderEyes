@@ -5,11 +5,11 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://127.0.0.1:8931",
+      "applicationUrl": "http://127.0.0.1:5704",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "PlaywrightMCPSharp__Server__Host": "127.0.0.1",
-        "PlaywrightMCPSharp__Server__Port": "8931"
+        "PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host": "127.0.0.1",
+        "PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port": "5704"
       }
     },
     "PlaywrightMCPSharp.Server.Stdio": {

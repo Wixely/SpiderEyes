@@ -1,3 +1,3 @@
 [mcp_servers.playwrightmcpsharp]
 command = "dotnet"
-args = ['C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp\src\PlaywrightMCPSharp.Server\bin\Debug\net8.0\PlaywrightMCPSharp.Server.dll', '--stdio']
+args = ['C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp\src\PlaywrightMCPSharp.Server\bin\Debug\net10.0\PlaywrightMCPSharp.Server.dll', '--stdio']

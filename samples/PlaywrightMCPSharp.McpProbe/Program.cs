@@ -237,7 +237,7 @@ static Uri GetEndpoint(string[] args)
 {
     if (args.Length == 0)
     {
-        return new Uri("http://127.0.0.1:8931/mcp");
+        return new Uri("http://127.0.0.1:5704/mcp");
     }
 
     if (args.Length == 2 && string.Equals(args[0], "--url", StringComparison.OrdinalIgnoreCase))

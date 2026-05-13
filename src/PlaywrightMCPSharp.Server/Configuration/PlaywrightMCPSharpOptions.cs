@@ -25,7 +25,7 @@ public sealed class ServerOptions
     public string Host { get; set; } = "127.0.0.1";
 
     [Range(1, 65535)]
-    public int Port { get; set; } = 8931;
+    public int Port { get; set; } = 5704;
 
     [Required]
     public string Route { get; set; } = "/mcp";

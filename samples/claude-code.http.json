@@ -2,7 +2,7 @@
   "mcpServers": {
     "playwrightmcpsharp": {
       "type": "http",
-      "url": "http://127.0.0.1:8931/mcp"
+      "url": "http://127.0.0.1:5704/mcp"
     }
   }
 }

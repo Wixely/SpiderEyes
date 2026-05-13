@@ -44,8 +44,8 @@
         "env": {
           "DOTNET_ENVIRONMENT": "Development",
           "ASPNETCORE_ENVIRONMENT": "Development",
-          "PlaywrightMCPSharp__Server__Host": "127.0.0.1",
-          "PlaywrightMCPSharp__Server__Port": "8931"
+          "PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host": "127.0.0.1",
+          "PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port": "5704"
         }
       }
     },
@@ -93,7 +93,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        "${workspaceFolder}/src/PlaywrightMCPSharp.Server/bin/Debug/net8.0/playwright.ps1",
+        "${workspaceFolder}/src/PlaywrightMCPSharp.Server/bin/Debug/net10.0/playwright.ps1",
         "install",
         "chromium"
       ],

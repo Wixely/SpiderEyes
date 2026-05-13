@@ -1,24 +1,35 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# syntax=docker/dockerfile:1.7
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
-COPY Directory.Packages.props NuGet.config PlaywrightMCPSharp.sln ./
+COPY NuGet.config global.json Directory.Build.props Directory.Packages.props PlaywrightMCPSharp.sln ./
 COPY src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj src/PlaywrightMCPSharp.Server/
 RUN dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj
 
 COPY . .
-RUN dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://0.0.0.0:8931
-ENV PlaywrightMCPSharp__Server__Host=0.0.0.0
-ENV PlaywrightMCPSharp__Server__Port=8931
-ENV PlaywrightMCPSharp__Server__Transport=Http
-ENV PlaywrightMCPSharp__Browser__Headless=true
+ENV DOTNET_ENVIRONMENT=Production \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host=0.0.0.0 \
+    PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=5704 \
+    PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Transport=Http \
+    PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Headless=true
 
-COPY --from=build /app/publish .
+RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app
+COPY --from=build --chown=$APP_UID:0 /app/publish ./
 
-EXPOSE 8931
+USER $APP_UID
+EXPOSE 5704
+VOLUME ["/app/logs"]
 
 ENTRYPOINT ["dotnet", "PlaywrightMCPSharp.Server.dll"]

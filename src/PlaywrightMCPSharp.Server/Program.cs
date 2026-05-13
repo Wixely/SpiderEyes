@@ -4,33 +4,76 @@ using PlaywrightMCPSharp.Server.Configuration;
 using PlaywrightMCPSharp.Server.Hosting;
 using PlaywrightMCPSharp.Server.Services;
 using PlaywrightMCPSharp.Server.Tools;
+using Serilog;
+using Serilog.Events;
 
 const string ServiceName = "PlaywrightMCPSharp";
+const string EnvironmentPrefix = "PLAYWRIGHTMCP_";
+var contentRoot = AppContext.BaseDirectory;
 
-var transportOverride = GetTransportOverride(args);
-var filteredArgs = FilterTransportAliases(args);
-var bootstrapConfiguration = BuildBootstrapConfiguration(filteredArgs);
-var bootstrapOptions = BindOptions(bootstrapConfiguration);
-var transport = transportOverride ?? bootstrapOptions.Server.Transport;
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose)
+    .WriteTo.File(
+        Path.Combine(contentRoot, "logs", "playwrightmcp-bootstrap-.log"),
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        shared: true)
+    .CreateBootstrapLogger();
 
-if (transport == PlaywrightMCPSharpTransportMode.Stdio)
+try
 {
-    await RunStdioAsync(filteredArgs, transportOverride);
+    AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        Log.Fatal(e.ExceptionObject as Exception, "Unhandled exception in AppDomain");
+    TaskScheduler.UnobservedTaskException += (_, e) =>
+    {
+        Log.Error(e.Exception, "Unobserved task exception");
+        e.SetObserved();
+    };
+
+    var transportOverride = GetTransportOverride(args);
+    var filteredArgs = FilterTransportAliases(args);
+    var bootstrapConfiguration = BuildBootstrapConfiguration(filteredArgs);
+    var bootstrapOptions = BindOptions(bootstrapConfiguration);
+    var transport = transportOverride ?? bootstrapOptions.Server.Transport;
+
+    if (transport == PlaywrightMCPSharpTransportMode.Stdio)
+    {
+        await RunStdioAsync(filteredArgs, transportOverride);
+    }
+    else
+    {
+        await RunHttpAsync(filteredArgs, transportOverride);
+    }
 }
-else
+catch (Exception ex)
 {
-    await RunHttpAsync(filteredArgs, transportOverride);
+    Log.Fatal(ex, "Server terminated unexpectedly");
+    Environment.ExitCode = 1;
+}
+finally
+{
+    Log.CloseAndFlush();
 }
 
 return;
 
 static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? transportOverride)
 {
-    var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+    {
+        Args = args,
+        ContentRootPath = AppContext.BaseDirectory,
+    });
+    ConfigurePlaywrightConfiguration(builder.Configuration, args);
     builder.Host.UseWindowsService(options =>
     {
         options.ServiceName = ServiceName;
     });
+    builder.Host.UseSerilog((ctx, services, cfg) => cfg
+        .ReadFrom.Configuration(ctx.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext());
     ApplyTransportOverride(builder.Configuration, transportOverride);
     ConfigureOptions(builder.Services, builder.Configuration);
 
@@ -40,7 +83,7 @@ static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? t
 
     var bootstrapOptions = BindOptions(builder.Configuration);
     var bindHost = string.IsNullOrWhiteSpace(bootstrapOptions.Server.Host) ? "127.0.0.1" : bootstrapOptions.Server.Host;
-    var bindPort = bootstrapOptions.Server.Port <= 0 ? 8931 : bootstrapOptions.Server.Port;
+    var bindPort = bootstrapOptions.Server.Port <= 0 ? 5704 : bootstrapOptions.Server.Port;
     builder.WebHost.UseUrls($"http://{bindHost}:{bindPort}");
     SetInteractiveConsoleTitle(bindPort);
 
@@ -69,7 +112,9 @@ static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? t
     app.MapGet("/healthz", () => Results.Ok(new
     {
         status = "ok",
+        server = ServiceName,
         transport = options.Server.Transport.ToString(),
+        path = options.Server.Route,
         route = options.Server.Route,
         securityMode = options.Security.Mode.ToString(),
         timeUtc = DateTimeOffset.UtcNow,
@@ -82,15 +127,18 @@ static async Task RunHttpAsync(string[] args, PlaywrightMCPSharpTransportMode? t
 
 static async Task RunStdioAsync(string[] args, PlaywrightMCPSharpTransportMode? transportOverride)
 {
-    var builder = Host.CreateApplicationBuilder(args);
+    var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+    {
+        Args = args,
+        ContentRootPath = AppContext.BaseDirectory,
+    });
+    ConfigurePlaywrightConfiguration(builder.Configuration, args);
     ApplyTransportOverride(builder.Configuration, transportOverride);
     ConfigureOptions(builder.Services, builder.Configuration);
 
+    Log.Logger = CreateStdioLogger();
     builder.Logging.ClearProviders();
-    builder.Logging.AddConsole(consoleLogOptions =>
-    {
-        consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
-    });
+    builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
     ConfigureCoreServices(builder.Services);
     ConfigureToolCatalog(
@@ -104,6 +152,32 @@ static async Task RunStdioAsync(string[] args, PlaywrightMCPSharpTransportMode? 
     logger.LogInformation("PlaywrightMCPSharp is running over stdio transport.");
 
     await host.RunAsync();
+}
+
+static void ConfigurePlaywrightConfiguration(ConfigurationManager configuration, string[] args)
+{
+    var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+        ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+    configuration.Sources.Clear();
+    configuration
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+    if (!string.IsNullOrWhiteSpace(environmentName))
+    {
+        configuration.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: true);
+    }
+
+    configuration
+        .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables()
+        .AddEnvironmentVariables(prefix: EnvironmentPrefix);
+
+    if (args.Length > 0)
+    {
+        configuration.AddCommandLine(args);
+    }
 }
 
 static void ConfigureOptions(IServiceCollection services, IConfiguration configuration)
@@ -153,7 +227,9 @@ static IConfigurationRoot BuildBootstrapConfiguration(string[] args)
         builder.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
     }
 
+    builder.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
     builder.AddEnvironmentVariables();
+    builder.AddEnvironmentVariables(prefix: EnvironmentPrefix);
     if (args.Length > 0)
     {
         builder.AddCommandLine(args);
@@ -215,6 +291,29 @@ static void SetInteractiveConsoleTitle(int port)
 
     Console.Title = $"{ServiceName} : {port}";
 }
+
+static Serilog.ILogger CreateStdioLogger()
+    => new LoggerConfiguration()
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+        .MinimumLevel.Override("System", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithProcessId()
+        .Enrich.WithThreadId()
+        .WriteTo.Console(
+            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+            standardErrorFromLevel: LogEventLevel.Verbose)
+        .WriteTo.File(
+            Path.Combine(AppContext.BaseDirectory, "logs", "playwrightmcp-.log"),
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 14,
+            fileSizeLimitBytes: 52428800,
+            rollOnFileSizeLimit: true,
+            shared: true,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+        .CreateLogger();
 
 static void WriteHttpStartupDiagnostics(PlaywrightMCPSharpOptions options, string bindHost, int bindPort)
 {
