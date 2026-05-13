@@ -1,34 +1,18 @@
 # PlaywrightMCPSharp
 
-`PlaywrightMCPSharp` is a .NET-native Playwright MCP server for development-oriented browsing by LLM clients. It does not require Node.js or Python to run the server. Uses the official MCP C# SDK, Playwright for .NET, and Roslyn scripting for the optional `browser_run_code` tool.
-
-Previously called SpiderEyes.
+`PlaywrightMCPSharp` is a .NET-native Playwright MCP server for browser automation over Streamable HTTP or stdio. It does not require Node.js or Python to run the server.
 
 The application ships with the Playwright .NET library, but it does not bundle the Playwright browser binaries by default. On a fresh machine, the host still needs the matching Playwright browser runtime installed once unless you pre-package those browser binaries yourself. PlaywrightMCPSharp itself still does not require a separate Node.js or Python install, because it uses Playwright for .NET rather than the Node.js Playwright package or a Python wrapper.
-
-## Why PlaywrightMCPSharp
-
-- No Node.js required to run the MCP server.
-- No Python required to run the MCP server.
-- Pure C# / .NET implementation for teams already standardised on the .NET toolchain.
-- Supports both Streamable HTTP and stdio transport from the same server host.
 
 ## What it does
 
 - Hosts a stateful Streamable HTTP MCP endpoint at `http://127.0.0.1:5704/mcp` by default.
-- Can also run as a single-session stdio MCP server for local spawned-client workflows.
+- Can also run as a single-session stdio MCP server for local clients.
 - Launches one isolated Playwright browser session per MCP session.
-- Exposes an official-like `browser_*` tool surface for navigation, snapshots, forms, storage, routing, tracing, verification, and coordinate-based mouse control.
+- Exposes `browser_*` tools for navigation, snapshots, forms, storage, routing, tracing, verification, and coordinate-based mouse control.
 - Uses Playwright AI ARIA snapshots so LLMs can work from structured page state instead of pixel screenshots.
 - Supports a C#-based `browser_run_code` tool with access to `page`, `context`, `browser`, `playwright`, `sessionId`, and `ct`.
 - Exposes MCP tools to inspect and install the required Playwright browser runtime on the host.
-
-## Repo layout
-
-- `src/PlaywrightMCPSharp.Server`: MCP server host, Playwright session runtime, tool implementations
-- `tests/PlaywrightMCPSharp.Server.Tests`: unit tests plus end-to-end MCP integration tests
-- `Directory.Packages.props`: central package versions
-- `NuGet.config`: repo-local NuGet source pinning to `nuget.org`
 
 ## Requirements
 
@@ -88,7 +72,7 @@ dotnet publish .\src\PlaywrightMCPSharp.Server -c Release -r win-x64 --self-cont
 2. Create the service pointing at the published executable:
 
 ```powershell
-sc.exe create PlaywrightMCPSharp binPath= "C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp.Server.exe" start= auto
+sc.exe create PlaywrightMCPSharp binPath= "C:\ABSOLUTE\PATH\TO\PlaywrightMCPSharp.exe" start= auto
 ```
 
 3. Start it:
@@ -97,7 +81,7 @@ sc.exe create PlaywrightMCPSharp binPath= "C:\ABSOLUTE\PATH\TO\PlaywrightMCPShar
 sc.exe start PlaywrightMCPSharp
 ```
 
-The service uses HTTP mode and the same `appsettings.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `PLAYWRIGHTMCP_PlaywrightMCPSharp__...` environment variables for the service.
+The service uses HTTP mode and the same `PlaywrightMCPSharp.json` / environment-variable configuration as the normal app. If you need a different port, route, or security mode, set the corresponding `PLAYWRIGHTMCP_PlaywrightMCPSharp__...` environment variables for the service.
 
 ## Docker
 
@@ -105,7 +89,12 @@ The repo includes a basic `Dockerfile` for HTTP-mode hosting:
 
 ```powershell
 docker build -t playwrightmcpsharp .
-docker run --rm -p 5704:5704 playwrightmcpsharp
+docker run --rm -p 5704:5704 \
+  -e PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Host=0.0.0.0 \
+  -e PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=5704 \
+  -e PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Password=change-me \
+  -e PLAYWRIGHTMCP_PlaywrightMCPSharp__Browser__Headless=true \
+  playwrightmcpsharp
 ```
 
 By default the container listens on `http://0.0.0.0:5704/mcp`.
@@ -114,26 +103,11 @@ Notes:
 
 - The container image is set up for the server itself, not for preinstalled Playwright browser runtimes.
 - After the container starts, you can call `browser_runtime_status` and `browser_install_runtime` if you want to install the configured browser runtime from inside the MCP session.
-- If you want a production container with browsers pre-baked in, that can be added as a second Dockerfile later.
-
 If an MCP client is already connected, it can also do the browser install over MCP by calling `browser_install_runtime`.
-
-## VS Code
-
-The repo includes a `.vscode` workspace setup so you can build, run, test, and debug directly in VS Code.
-
-- `Ctrl+Shift+B`: runs the default `build` task
-- `Terminal > Run Task > run`: starts the MCP server in Development mode
-- `Terminal > Run Task > run-stdio`: starts the MCP server in stdio mode
-- `Terminal > Run Task > test`: runs the test suite
-- `Terminal > Run Task > install-playwright-chromium`: installs the Playwright Chromium runtime
-- `F5`: launches `Debug PlaywrightMCPSharp Server`
-
-The repo includes both `Debug PlaywrightMCPSharp Server` for HTTP and `Debug PlaywrightMCPSharp Server (stdio)` for local spawned-MCP debugging.
 
 ## Configuration
 
-Settings live under `PlaywrightMCPSharp` in `appsettings.json` and can be overridden with environment variables such as `PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=9000`.
+Settings live under `PlaywrightMCPSharp` in `PlaywrightMCPSharp.json` and can be overridden with environment variables such as `PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__Port=9000`. Environment variables win over JSON; use `__` for nested keys, numeric indexes for arrays such as `PLAYWRIGHTMCP_PlaywrightMCPSharp__Server__AllowedHosts__0=*`, and `true`/`false` for booleans.
 
 `PlaywrightMCPSharp:Server:Password` is blank by default. Set it to require an MCP endpoint password; clients may send `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`. This password gate is separate from the security mode below.
 
@@ -316,26 +290,6 @@ var title = await page.TitleAsync();
 return new { title, url = page.Url };
 ```
 
-## Manual smoke test
-
-1. Start the server.
-2. Connect an MCP Inspector or another Streamable HTTP MCP client to `http://127.0.0.1:5704/mcp`, or launch the same server with `--stdio` from a stdio-capable client.
-3. Call `browser_navigate` with `https://example.com`.
-4. Call `browser_snapshot` and confirm the returned snapshot contains `Example Domain`.
-5. Call `browser_take_screenshot` and confirm an image is written under `artifacts/<session-id>/`.
-
-If the machine has never downloaded Playwright browsers, call `browser_runtime_status` first and then `browser_install_runtime` from the MCP client.
-
-## Tests
-
-Run the full suite:
-
-```powershell
-dotnet test
-```
-
-The integration tests require Playwright browsers to be installed first.
-
 ## Security notes
 
 - AI ARIA snapshots are page-derived input and should be treated as untrusted. Prompt injection can be present in page text and accessibility names.
@@ -343,19 +297,3 @@ The integration tests require Playwright browsers to be installed first.
 - `RemoteNoAuth` is intentionally dangerous and should not be exposed on the public internet.
 - File operations are root-scoped by default. `AllowUnrestrictedFileAccess=true` removes that guardrail.
 - `browser_install_runtime` downloads executables onto the host machine. `withDependencies=true` may also attempt OS-level dependency installation when Playwright supports it.
-
-## Current scope
-
-Included in v1:
-
-- Streamable HTTP and stdio
-- Chromium/Firefox/WebKit launch support
-- Per-session isolated browser processes
-- AI snapshots, routing, storage, tracing, assertions, and coordinate tools
-
-Not included in v1:
-
-- PDF tooling
-- video start/stop
-- browser extension attach or CDP attach
-- raw JavaScript Playwright snippets
