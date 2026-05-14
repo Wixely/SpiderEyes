@@ -8,15 +8,21 @@ COPY src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj src/Playwrig
 ARG TARGETARCH
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
-    dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj --arch "$arch"
+    rid="linux-$arch"; \
+    dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
+    -r "$rid" \
+    -p:PublishSingleFile=true \
+    -p:SelfContained=false \
+    -p:EnableCompressionInSingleFile=false
 
 COPY . .
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
+    rid="linux-$arch"; \
     dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
     -c Release \
     --no-restore \
-    --arch "$arch" \
+    -r "$rid" \
     --self-contained false \
     -o /app/publish \
     -p:PublishSingleFile=true \
