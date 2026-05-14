@@ -5,10 +5,12 @@ WORKDIR /src
 
 COPY NuGet.config global.json Directory.Build.props Directory.Packages.props PlaywrightMCPSharp.sln ./
 COPY src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj src/PlaywrightMCPSharp.Server/
-RUN dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj
+ARG TARGETARCH
+RUN arch="${TARGETARCH:-amd64}"; \
+    if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
+    dotnet restore src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj --arch "$arch"
 
 COPY . .
-ARG TARGETARCH
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
     dotnet publish src/PlaywrightMCPSharp.Server/PlaywrightMCPSharp.Server.csproj \
@@ -18,7 +20,7 @@ RUN arch="${TARGETARCH:-amd64}"; \
     --self-contained false \
     -o /app/publish \
     -p:PublishSingleFile=true \
-    -p:EnableCompressionInSingleFile=true \
+    -p:EnableCompressionInSingleFile=false \
     -p:IncludeNativeLibrariesForSelfExtract=true \
     -p:IncludeAllContentForSelfExtract=true \
     -p:IsTransformWebConfigDisabled=true \
