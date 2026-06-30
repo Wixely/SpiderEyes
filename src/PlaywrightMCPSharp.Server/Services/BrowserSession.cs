@@ -31,6 +31,7 @@ public sealed class BrowserSession : IAsyncDisposable
     private int _tabCounter;
     private PendingDialogAction? _nextDialogAction;
     private bool _tracingStarted;
+    private EmulationSettings? _emulationOverride;
 
     public BrowserSession(
         string sessionId,
@@ -288,25 +289,50 @@ public sealed class BrowserSession : IAsyncDisposable
         var downloadsPath = Path.GetFullPath(Path.Combine(_options.Browser.DownloadsPath, SessionId));
         Directory.CreateDirectory(downloadsPath);
 
-        var contextOptions = new BrowserNewContextOptions
-        {
-            IgnoreHTTPSErrors = _options.Browser.IgnoreHttpsErrors,
-            Locale = _options.Browser.Locale,
-            TimezoneId = _options.Browser.TimezoneId,
-            AcceptDownloads = true,
-            RecordVideoDir = null,
-            StorageStatePath = storageStatePath,
-            ViewportSize = new ViewportSize
-            {
-                Width = _options.Browser.ViewportWidth,
-                Height = _options.Browser.ViewportHeight,
-            },
-        };
+        var contextOptions = BuildContextOptions(storageStatePath);
 
         _context = await _browser.NewContextAsync(contextOptions);
         HookContextEvents(_context);
         await _context.RouteAsync("**/*", HandleRouteAsync);
         await NewPageAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a device emulation override (or clears it when <paramref name="settings"/>
+    /// is null) and recreates the browser context. Open tabs and in-memory state are reset.
+    /// </summary>
+    public async Task ApplyEmulationAsync(EmulationSettings? settings, CancellationToken cancellationToken)
+    {
+        await EnsureStartedAsync(cancellationToken);
+        _emulationOverride = settings;
+        await RecreateContextAsync(null, cancellationToken);
+    }
+
+    /// <summary>Returns the emulation values that will be used for the current context.</summary>
+    public object GetEffectiveEmulation()
+    {
+        var browser = _options.Browser;
+        var emu = _emulationOverride;
+        var device = ResolveDevice(emu?.DeviceName ?? browser.DeviceName);
+        var (width, height) = ResolveViewport(emu, device);
+
+        return new
+        {
+            source = emu is null ? "config" : "override",
+            deviceName = emu?.DeviceName ?? browser.DeviceName,
+            viewport = new { width, height },
+            userAgent = emu?.UserAgent ?? device?.UserAgent ?? browser.UserAgent,
+            deviceScaleFactor = emu?.DeviceScaleFactor ?? device?.DeviceScaleFactor ?? browser.DeviceScaleFactor,
+            isMobile = emu?.IsMobile ?? device?.IsMobile ?? browser.IsMobile,
+            hasTouch = emu?.HasTouch ?? device?.HasTouch ?? browser.HasTouch,
+        };
+    }
+
+    /// <summary>Lists the Playwright device descriptor names available for emulation.</summary>
+    public async Task<IReadOnlyList<string>> GetDeviceNamesAsync(CancellationToken cancellationToken)
+    {
+        _playwright ??= await Playwright.CreateAsync();
+        return _playwright.Devices.Keys.OrderBy(static name => name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     public async Task StartTracingAsync(string? title)
@@ -377,6 +403,87 @@ public sealed class BrowserSession : IAsyncDisposable
 
         _playwright?.Dispose();
         _lock.Dispose();
+    }
+
+    private BrowserNewContextOptions BuildContextOptions(string? storageStatePath)
+    {
+        var browser = _options.Browser;
+        var emu = _emulationOverride;
+        var device = ResolveDevice(emu?.DeviceName ?? browser.DeviceName);
+        var (width, height) = ResolveViewport(emu, device);
+
+        return new BrowserNewContextOptions
+        {
+            IgnoreHTTPSErrors = browser.IgnoreHttpsErrors,
+            Locale = browser.Locale,
+            TimezoneId = browser.TimezoneId,
+            AcceptDownloads = true,
+            RecordVideoDir = null,
+            StorageStatePath = storageStatePath,
+            ViewportSize = new ViewportSize { Width = width, Height = height },
+            UserAgent = emu?.UserAgent ?? device?.UserAgent ?? browser.UserAgent,
+            DeviceScaleFactor = emu?.DeviceScaleFactor ?? device?.DeviceScaleFactor ?? browser.DeviceScaleFactor,
+            IsMobile = emu?.IsMobile ?? device?.IsMobile ?? browser.IsMobile,
+            HasTouch = emu?.HasTouch ?? device?.HasTouch ?? browser.HasTouch,
+        };
+    }
+
+    private BrowserNewContextOptions? ResolveDevice(string? deviceName)
+    {
+        if (string.IsNullOrWhiteSpace(deviceName))
+        {
+            return null;
+        }
+
+        if (_playwright is not null && _playwright.Devices.TryGetValue(deviceName, out var device))
+        {
+            return device;
+        }
+
+        _logger.LogWarning("Unknown Playwright device '{Device}'. Use browser_list_devices to see valid names.", deviceName);
+        return null;
+    }
+
+    private (int Width, int Height) ResolveViewport(EmulationSettings? emu, BrowserNewContextOptions? device)
+    {
+        var orientation = emu?.Orientation ?? _options.Browser.ViewportOrientation;
+
+        int baseWidth;
+        int baseHeight;
+        if (emu?.ViewportWidth is { } explicitWidth && emu?.ViewportHeight is { } explicitHeight)
+        {
+            baseWidth = explicitWidth;
+            baseHeight = explicitHeight;
+        }
+        else if (device?.ViewportSize is { } deviceViewport)
+        {
+            baseWidth = deviceViewport.Width;
+            baseHeight = deviceViewport.Height;
+        }
+        else
+        {
+            (baseWidth, baseHeight) = ResolveConfigViewport();
+        }
+
+        return ViewportPresets.TryApplyOrientation(baseWidth, baseHeight, orientation, out var w, out var h, out _)
+            ? (w, h)
+            : (baseWidth, baseHeight);
+    }
+
+    private (int Width, int Height) ResolveConfigViewport()
+    {
+        var browser = _options.Browser;
+        if (!string.IsNullOrWhiteSpace(browser.ViewportPreset))
+        {
+            if (ViewportPresets.TryResolve(browser.ViewportPreset, null, out var width, out var height, out var error))
+            {
+                return (width, height);
+            }
+
+            _logger.LogWarning("Ignoring invalid default viewport preset configuration: {Error}", error);
+        }
+
+        return (browser.ViewportWidth, browser.ViewportHeight);
     }
 
     private async Task<IBrowser> LaunchBrowserAsync(CancellationToken cancellationToken)

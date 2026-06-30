@@ -169,6 +169,38 @@ You can also override transport from the command line with `--stdio` or `--http`
 
 This mode is intentionally loud and unsafe. Use it only on a trusted network.
 
+### Viewport and device emulation
+
+The `Browser` section sets the **default** viewport and device emulation for every new session. A connected MCP client can override these live, and the server config is the fallback when it does not.
+
+| Setting | Purpose |
+| --- | --- |
+| `ViewportWidth` / `ViewportHeight` | Default viewport size in CSS pixels. |
+| `ViewportPreset` | Default named resolution (e.g. `fhd`, `ipad-pro-11`); takes precedence over the width/height pair. |
+| `ViewportOrientation` | `landscape` or `portrait`, applied to the default viewport. |
+| `DeviceName` | Playwright device descriptor (e.g. `iPhone 13`); supplies viewport, user agent, scale factor, touch, and mobile defaults. |
+| `UserAgent`, `DeviceScaleFactor`, `IsMobile`, `HasTouch` | Per-field defaults; `null` keeps the browser/device default. |
+
+```json
+{
+  "PlaywrightMCPSharp": {
+    "Browser": {
+      "ViewportPreset": "fhd",
+      "ViewportOrientation": "landscape"
+    }
+  }
+}
+```
+
+Clients control resolution and emulation at runtime through these tools:
+
+- `browser_resize` — change the viewport by explicit `width`/`height` or by named `preset` (+ optional `orientation`).
+- `browser_list_viewport_presets` — discover the available desktop/tablet/mobile preset names.
+- `browser_emulate_device` — apply full device emulation (viewport, user agent, scale factor, touch, mobile) from a Playwright `device` name and/or per-field overrides; pass `reset: true` to return to the configured defaults. This recreates the browser context, clearing open tabs, cookies, and in-memory storage.
+- `browser_list_devices` — discover the Playwright device names accepted by `browser_emulate_device`.
+
+Resolution precedence for every field is **client override → device descriptor → server config default**.
+
 ## MCP client connection
 
 For Streamable HTTP clients, point them at:
@@ -215,7 +247,10 @@ If the client supports roots, PlaywrightMCPSharp requests them and restricts fil
 - `browser_select_option`
 - `browser_press_key`
 - `browser_wait_for`
-- `browser_resize`
+- `browser_resize` — set the viewport by explicit `width`/`height` or by named `preset` (+ optional `orientation`)
+- `browser_list_viewport_presets` — list popular desktop, tablet, and mobile resolutions selectable by name
+- `browser_emulate_device` — full device emulation (viewport, user agent, scale factor, touch, mobile) by Playwright device name and/or per-field overrides; recreates the context
+- `browser_list_devices` — list the Playwright device descriptor names accepted by `browser_emulate_device`
 - `browser_handle_dialog`
 - `browser_file_upload`
 - `browser_console_messages`
@@ -297,3 +332,8 @@ return new { title, url = page.Url };
 - `RemoteNoAuth` is intentionally dangerous and should not be exposed on the public internet.
 - File operations are root-scoped by default. `AllowUnrestrictedFileAccess=true` removes that guardrail.
 - `browser_install_runtime` downloads executables onto the host machine. `withDependencies=true` may also attempt OS-level dependency installation when Playwright supports it.
+
+## License
+
+Released under the [MIT License](LICENSE). Third-party dependencies and bundled
+browser runtimes are covered in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

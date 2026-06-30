@@ -76,11 +76,40 @@ public sealed class BrowserOptions
     [Range(100, 10_000)]
     public int ViewportHeight { get; set; } = 900;
 
+    /// <summary>
+    /// Optional default viewport preset name (e.g. "fhd", "ipad-pro-11"). When set it
+    /// takes precedence over <see cref="ViewportWidth"/>/<see cref="ViewportHeight"/>.
+    /// An MCP client can still override the live viewport with browser_resize.
+    /// </summary>
+    public string? ViewportPreset { get; set; }
+
+    /// <summary>
+    /// Optional orientation ("landscape" or "portrait") applied to the default viewport.
+    /// </summary>
+    public string? ViewportOrientation { get; set; }
+
     public string Locale { get; set; } = "en-GB";
 
     public string TimezoneId { get; set; } = "Europe/London";
 
+    /// <summary>
+    /// Default Playwright device descriptor name (e.g. "iPhone 13"). When set, the
+    /// device's viewport, user agent, scale factor, touch, and mobile flags are used
+    /// as defaults. An MCP client can override these live with browser_emulate_device.
+    /// </summary>
     public string? DeviceName { get; set; }
+
+    /// <summary>Default user agent override. Null uses the browser/device default.</summary>
+    public string? UserAgent { get; set; }
+
+    /// <summary>Default device scale factor (DPR). Null uses the browser/device default.</summary>
+    public float? DeviceScaleFactor { get; set; }
+
+    /// <summary>Default mobile emulation flag. Null uses the browser/device default.</summary>
+    public bool? IsMobile { get; set; }
+
+    /// <summary>Default touch support flag. Null uses the browser/device default.</summary>
+    public bool? HasTouch { get; set; }
 
     public string DownloadsPath { get; set; } = "artifacts/downloads";
 

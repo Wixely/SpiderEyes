@@ -246,12 +246,134 @@ public sealed class BrowserToolExecutor
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Completed wait.");
         }, cancellationToken);
 
-    public Task<BrowserCommandResult> ResizeAsync(McpServer server, int width, int height, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> ResizeAsync(McpServer server, int? width, int? height, string? preset, string? orientation, string? tabId, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_resize", PageCaptureMode.Snapshot, async (session, ct) =>
         {
+            int resolvedWidth;
+            int resolvedHeight;
+            string? appliedPreset = null;
+
+            if (!string.IsNullOrWhiteSpace(preset))
+            {
+                if (!ViewportPresets.TryResolve(preset, orientation, out resolvedWidth, out resolvedHeight, out var presetError))
+                {
+                    throw new ArgumentException(presetError);
+                }
+
+                appliedPreset = preset.Trim();
+            }
+            else if (width is { } w && height is { } h)
+            {
+                if (!ViewportPresets.TryApplyOrientation(w, h, orientation, out resolvedWidth, out resolvedHeight, out var orientationError))
+                {
+                    throw new ArgumentException(orientationError);
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Provide either a 'preset' name or both 'width' and 'height'.");
+            }
+
             var page = await session.GetPageAsync(tabId, true, ct);
-            await page.SetViewportSizeAsync(width, height);
-            return new BrowserActionPayload(Data: new { width, height }, TabId: GetTabId(session, page), Message: "Resized viewport.");
+            await page.SetViewportSizeAsync(resolvedWidth, resolvedHeight);
+            return new BrowserActionPayload(
+                Data: new { width = resolvedWidth, height = resolvedHeight, preset = appliedPreset, orientation },
+                TabId: GetTabId(session, page),
+                Message: appliedPreset is null
+                    ? $"Resized viewport to {resolvedWidth}x{resolvedHeight}."
+                    : $"Resized viewport to {appliedPreset} ({resolvedWidth}x{resolvedHeight}).");
+        }, cancellationToken);
+
+    public Task<BrowserCommandResult> ListViewportPresetsAsync(McpServer server, CancellationToken cancellationToken)
+        => ExecuteAsync(server, "browser_list_viewport_presets", PageCaptureMode.None, async (session, ct) =>
+        {
+            await Task.CompletedTask;
+            var presets = ViewportPresets.All
+                .Select(p => new
+                {
+                    name = p.Name,
+                    category = p.Category,
+                    width = p.Width,
+                    height = p.Height,
+                    naturalOrientation = p.Width >= p.Height ? ViewportPresets.Landscape : ViewportPresets.Portrait,
+                    description = p.Description,
+                    aliases = p.Aliases,
+                })
+                .ToArray();
+
+            return new BrowserActionPayload(
+                Data: new { orientations = new[] { ViewportPresets.Landscape, ViewportPresets.Portrait }, presets },
+                Message: $"Listed {presets.Length} viewport presets.");
+        }, cancellationToken);
+
+    public Task<BrowserCommandResult> EmulateDeviceAsync(
+        McpServer server,
+        string? device,
+        string? preset,
+        int? width,
+        int? height,
+        string? orientation,
+        string? userAgent,
+        bool? isMobile,
+        bool? hasTouch,
+        float? deviceScaleFactor,
+        bool reset,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(server, "browser_emulate_device", PageCaptureMode.Snapshot, async (session, ct) =>
+        {
+            EmulationSettings? settings = null;
+
+            if (!reset)
+            {
+                int? viewportWidth = width;
+                int? viewportHeight = height;
+                if (!string.IsNullOrWhiteSpace(preset))
+                {
+                    if (!ViewportPresets.TryResolve(preset, null, out var presetWidth, out var presetHeight, out var presetError))
+                    {
+                        throw new ArgumentException(presetError);
+                    }
+
+                    viewportWidth = presetWidth;
+                    viewportHeight = presetHeight;
+                }
+
+                var normalizedOrientation = string.IsNullOrWhiteSpace(orientation) ? null : orientation.Trim().ToLowerInvariant();
+                if (normalizedOrientation is not null &&
+                    normalizedOrientation != ViewportPresets.Landscape &&
+                    normalizedOrientation != ViewportPresets.Portrait)
+                {
+                    throw new ArgumentException($"Unknown orientation '{orientation}'. Use '{ViewportPresets.Landscape}' or '{ViewportPresets.Portrait}'.");
+                }
+
+                settings = new EmulationSettings
+                {
+                    DeviceName = string.IsNullOrWhiteSpace(device) ? null : device.Trim(),
+                    ViewportWidth = viewportWidth,
+                    ViewportHeight = viewportHeight,
+                    Orientation = normalizedOrientation,
+                    UserAgent = string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
+                    DeviceScaleFactor = deviceScaleFactor,
+                    IsMobile = isMobile,
+                    HasTouch = hasTouch,
+                };
+            }
+
+            await session.ApplyEmulationAsync(settings, ct);
+
+            return new BrowserActionPayload(
+                Data: session.GetEffectiveEmulation(),
+                Message: reset ? "Reset emulation to configured defaults." : "Applied device emulation.",
+                Warnings: ["Changing emulation recreates the browser context; open tabs, cookies, and in-memory storage were cleared."]);
+        }, cancellationToken);
+
+    public Task<BrowserCommandResult> ListDevicesAsync(McpServer server, CancellationToken cancellationToken)
+        => ExecuteAsync(server, "browser_list_devices", PageCaptureMode.None, async (session, ct) =>
+        {
+            var devices = await session.GetDeviceNamesAsync(ct);
+            return new BrowserActionPayload(
+                Data: new { count = devices.Count, devices },
+                Message: $"Listed {devices.Count} emulation devices.");
         }, cancellationToken);
 
     public Task<BrowserCommandResult> HandleDialogAsync(McpServer server, string action, string? promptText, CancellationToken cancellationToken)
@@ -320,6 +442,7 @@ public sealed class BrowserToolExecutor
                     options.Browser.Locale,
                     options.Browser.TimezoneId,
                 },
+                emulation = session.GetEffectiveEmulation(),
                 features = options.Features,
             }, Message: "Loaded effective configuration.");
         }, cancellationToken);
