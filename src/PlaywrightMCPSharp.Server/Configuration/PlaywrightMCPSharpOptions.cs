@@ -128,6 +128,14 @@ public sealed class SessionOptions
     public int MaxConsoleEntries { get; set; } = 200;
 
     public int MaxNetworkEntries { get; set; } = 500;
+
+    /// <summary>Maximum named browser instances (including 'default') per MCP session.</summary>
+    [Range(1, 64)]
+    public int MaxInstancesPerSession { get; set; } = 4;
+
+    /// <summary>Maximum browser instances across all MCP sessions on this server.</summary>
+    [Range(1, 256)]
+    public int MaxGlobalInstances { get; set; } = 16;
 }
 
 public sealed class FeatureOptions
@@ -149,4 +157,11 @@ public sealed class FeatureOptions
     public bool AllowUnrestrictedFileAccess { get; set; }
 
     public bool ClaudeCompatibleToolCatalog { get; set; }
+
+    /// <summary>
+    /// Registers the browser_instance_* lifecycle tools and honors optional instanceName
+    /// arguments on browser tools. Names route to isolated browser processes/contexts
+    /// under the composite key (MCP session ID, instance name).
+    /// </summary>
+    public bool NamedInstances { get; set; } = true;
 }

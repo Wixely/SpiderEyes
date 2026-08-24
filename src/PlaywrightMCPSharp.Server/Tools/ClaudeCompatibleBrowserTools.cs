@@ -47,7 +47,7 @@ public sealed class ClaudeCompatibleBrowserTools
         [Description("URL to navigate to.")] string url,
         McpServer server,
         CancellationToken cancellationToken)
-        => SerializeAsync(_executor.NavigateAsync(server, url, tabId: null, newTab: false, cancellationToken));
+        => SerializeAsync(_executor.NavigateAsync(server, url, tabId: null, newTab: false, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_navigate_back")]
     [Description("Navigate the active tab back in history.")]
@@ -57,7 +57,7 @@ public sealed class ClaudeCompatibleBrowserTools
     [McpServerTool(Name = "browser_snapshot", ReadOnly = true)]
     [Description("Capture an AI-friendly accessibility snapshot of the active page.")]
     public Task<string> SnapshotAsync(McpServer server, CancellationToken cancellationToken)
-        => SerializeAsync(_executor.SnapshotAsync(server, tabId: null, cancellationToken));
+        => SerializeAsync(_executor.SnapshotAsync(server, tabId: null, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_take_screenshot", ReadOnly = true)]
     [Description("Save a screenshot of the active page.")]

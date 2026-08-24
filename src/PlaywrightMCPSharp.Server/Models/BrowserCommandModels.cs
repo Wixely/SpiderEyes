@@ -6,6 +6,8 @@ public sealed class BrowserCommandResult
 
     public required string SessionId { get; init; }
 
+    public string? InstanceName { get; init; }
+
     public bool Success { get; init; } = true;
 
     public string? Message { get; init; }

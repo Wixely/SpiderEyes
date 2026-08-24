@@ -246,6 +246,138 @@ public sealed class BrowserMcpIntegrationTests : IAsyncLifetime
         Assert.Equal("stdio-session", runtimeStatusDocument.RootElement.GetProperty("sessionId").GetString());
     }
 
+    [Fact]
+    public async Task McpServer_NamedInstances_AreIsolated_AndNavigateConcurrently()
+    {
+        if (!_integrationEnabled)
+        {
+            return;
+        }
+
+        Assert.NotNull(_client);
+        Assert.NotNull(_site);
+
+        var tools = await _client!.ListToolsAsync();
+        Assert.Contains(tools, tool => tool.Name == "browser_instance_create");
+        Assert.Contains(tools, tool => tool.Name == "browser_instance_list");
+        Assert.Contains(tools, tool => tool.Name == "browser_instance_status");
+        Assert.Contains(tools, tool => tool.Name == "browser_instance_close");
+
+        // Two logical agents sharing one MCP session create their own named instances.
+        var createA = await _client.CallToolAsync("browser_instance_create", new Dictionary<string, object?>
+        {
+            ["instanceName"] = "agent-a",
+        });
+        Assert.Contains("agent-a", GetFirstText(createA, GetServerLogs()));
+
+        var createB = await _client.CallToolAsync("browser_instance_create", new Dictionary<string, object?>
+        {
+            ["instanceName"] = "agent-b",
+        });
+        Assert.Contains("agent-b", GetFirstText(createB, GetServerLogs()));
+
+        // Duplicate creation must fail rather than silently reuse the instance.
+        var duplicate = await _client.CallToolAsync("browser_instance_create", new Dictionary<string, object?>
+        {
+            ["instanceName"] = "agent-a",
+        });
+        Assert.True(duplicate.IsError);
+
+        // Both instances navigate concurrently; per-instance locks mean neither waits on the other.
+        var navigateATask = _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
+        {
+            ["url"] = _site!.BaseUri.ToString(),
+            ["instanceName"] = "agent-a",
+        });
+        var navigateBTask = _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
+        {
+            ["url"] = _site!.BaseUri.ToString(),
+            ["instanceName"] = "agent-b",
+        });
+        var navigations = await Task.WhenAll(navigateATask.AsTask(), navigateBTask.AsTask());
+
+        foreach (var (navigation, expectedInstance) in new[] { (navigations[0], "agent-a"), (navigations[1], "agent-b") })
+        {
+            var text = GetFirstText(navigation, GetServerLogs());
+            using var document = JsonDocument.Parse(text);
+            Assert.Equal(expectedInstance, document.RootElement.GetProperty("instanceName").GetString());
+            Assert.Contains("PlaywrightMCPSharp Demo", text);
+        }
+
+        // State written in agent-a must not be visible in agent-b (separate browser + context).
+        var markA = await _client.CallToolAsync("browser_evaluate", new Dictionary<string, object?>
+        {
+            ["expression"] = "() => { localStorage.setItem('owner', 'agent-a'); return localStorage.getItem('owner'); }",
+            ["instanceName"] = "agent-a",
+        });
+        Assert.Contains("agent-a", GetFirstText(markA, GetServerLogs()));
+
+        var readB = await _client.CallToolAsync("browser_evaluate", new Dictionary<string, object?>
+        {
+            ["expression"] = "() => localStorage.getItem('owner')",
+            ["instanceName"] = "agent-b",
+        });
+        using (var readBDocument = JsonDocument.Parse(GetFirstText(readB, GetServerLogs())))
+        {
+            // A null result is serialized as a missing or null 'data' property.
+            var ownerVisibleInB = readBDocument.RootElement.TryGetProperty("data", out var data)
+                && data.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+            Assert.False(ownerVisibleInB, "agent-a's localStorage leaked into agent-b.");
+        }
+
+        // The lifecycle API reports both named instances as started and isolated.
+        var list = await _client.CallToolAsync("browser_instance_list");
+        using (var listDocument = JsonDocument.Parse(GetFirstText(list, GetServerLogs())))
+        {
+            var instances = listDocument.RootElement.GetProperty("data").GetProperty("instances").EnumerateArray()
+                .Select(static instance => instance.GetProperty("instanceName").GetString())
+                .ToArray();
+            Assert.Contains("agent-a", instances);
+            Assert.Contains("agent-b", instances);
+        }
+
+        var statusA = await _client.CallToolAsync("browser_instance_status", new Dictionary<string, object?>
+        {
+            ["instanceName"] = "agent-a",
+        });
+        using (var statusDocument = JsonDocument.Parse(GetFirstText(statusA, GetServerLogs())))
+        {
+            var data = statusDocument.RootElement.GetProperty("data");
+            Assert.True(data.GetProperty("started").GetBoolean());
+            Assert.True(data.GetProperty("connected").GetBoolean());
+            Assert.True(data.GetProperty("tabCount").GetInt32() >= 1);
+        }
+
+        // Unknown names fail deterministically instead of creating a misspelled instance.
+        var unknownNavigate = await _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
+        {
+            ["url"] = _site!.BaseUri.ToString(),
+            ["instanceName"] = "agent-ghost",
+        });
+        Assert.True(unknownNavigate.IsError);
+
+        // Closing agent-a does not affect agent-b.
+        var close = await _client.CallToolAsync("browser_instance_close", new Dictionary<string, object?>
+        {
+            ["instanceName"] = "agent-a",
+        });
+        Assert.Contains("Closed", GetFirstText(close, GetServerLogs()));
+
+        var navigateClosed = await _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
+        {
+            ["url"] = _site!.BaseUri.ToString(),
+            ["instanceName"] = "agent-a",
+        });
+        Assert.True(navigateClosed.IsError);
+
+        var navigateBAgain = await _client.CallToolAsync("browser_navigate", new Dictionary<string, object?>
+        {
+            ["url"] = _site!.BaseUri.ToString(),
+            ["instanceName"] = "agent-b",
+        });
+        Assert.Contains("PlaywrightMCPSharp Demo", GetFirstText(navigateBAgain, GetServerLogs()));
+    }
+
     private static bool ArePlaywrightBrowsersInstalled()
     {
         var browserRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ms-playwright");

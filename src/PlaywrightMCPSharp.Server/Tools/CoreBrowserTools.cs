@@ -22,8 +22,9 @@ public sealed class CoreBrowserTools
         McpServer server,
         CancellationToken cancellationToken,
         [Description("Optional tab ID.")] string? tabId = null,
-        [Description("Open the URL in a new tab.")] bool newTab = false)
-        => _executor.NavigateAsync(server, url, tabId, newTab, cancellationToken);
+        [Description("Open the URL in a new tab.")] bool newTab = false,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance.")] string? instanceName = null)
+        => _executor.NavigateAsync(server, url, tabId, newTab, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_navigate_back", UseStructuredContent = true)]
     [Description("Navigate the current tab back in history.")]
@@ -52,8 +53,9 @@ public sealed class CoreBrowserTools
     public Task<BrowserCommandResult> SnapshotAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.SnapshotAsync(server, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance.")] string? instanceName = null)
+        => _executor.SnapshotAsync(server, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_take_screenshot", UseStructuredContent = true, ReadOnly = true)]
     [Description("Save a screenshot of the current page.")]
@@ -228,8 +230,9 @@ public sealed class CoreBrowserTools
         [Description("JavaScript expression or function body to evaluate.")] string expression,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.EvaluateAsync(server, expression, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance.")] string? instanceName = null)
+        => _executor.EvaluateAsync(server, expression, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_get_config", UseStructuredContent = true, ReadOnly = true)]
     [Description("Return the effective server and browser configuration.")]

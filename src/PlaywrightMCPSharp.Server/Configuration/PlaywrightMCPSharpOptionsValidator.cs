@@ -26,6 +26,16 @@ public sealed class PlaywrightMCPSharpOptionsValidator : IValidateOptions<Playwr
             return ValidateOptionsResult.Fail("PlaywrightMCPSharp:Session:MaxTabs must be at least 1.");
         }
 
+        if (options.Session.MaxInstancesPerSession < 1)
+        {
+            return ValidateOptionsResult.Fail("PlaywrightMCPSharp:Session:MaxInstancesPerSession must be at least 1.");
+        }
+
+        if (options.Session.MaxGlobalInstances < options.Session.MaxInstancesPerSession)
+        {
+            return ValidateOptionsResult.Fail("PlaywrightMCPSharp:Session:MaxGlobalInstances must be at least MaxInstancesPerSession.");
+        }
+
         return ValidateOptionsResult.Success;
     }
 }

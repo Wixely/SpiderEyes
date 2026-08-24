@@ -300,6 +300,19 @@ If the client supports roots, PlaywrightMCPSharp requests them and restricts fil
 - `browser_mouse_wheel`
 - `browser_run_code`
 
+### Named browser instances
+
+Multiple agents multiplexed through one MCP session (or sharing the stdio fallback session) can isolate their browser state with named instances. Each instance owns its own browser process, context, tabs, cookies, storage, routes, logs, and artifact directory, keyed by `(MCP session ID, instance name)`. Instances run concurrently: one instance's command lock never blocks another instance. Names are routing identifiers, not authorization credentials — callers sharing one authenticated MCP connection can address one another's names.
+
+- `browser_instance_create` — explicitly create a named instance (`instanceName`, optional `browserType`, `headless`, `storageState` JSON). Fails if the name exists.
+- `browser_instance_list` — list this session's instances.
+- `browser_instance_status` — engine, headless flag, started/connected, tab count, busy state, timestamps.
+- `browser_instance_close` — dispose one instance without affecting others; waits for its in-flight command.
+
+Browser tools accept an optional `instanceName` argument (currently `browser_navigate`, `browser_snapshot`, and `browser_evaluate`; the rest of the catalog is being migrated). Omitting it uses the session's `default` instance, which is created on demand, so existing clients are unaffected. Passing a name that was never created fails deterministically.
+
+Instance names must match `[a-z0-9][a-z0-9._-]{0,63}` (input is trimmed and lowercased). Limits are configurable via `PlaywrightMCPSharp:Session:MaxInstancesPerSession` (default 4) and `PlaywrightMCPSharp:Session:MaxGlobalInstances` (default 16). The feature can be disabled with `PlaywrightMCPSharp:Features:NamedInstances=false`. The Claude-compatible tool catalog does not expose instance tools yet.
+
 ## `browser_run_code`
 
 `browser_run_code` accepts either:

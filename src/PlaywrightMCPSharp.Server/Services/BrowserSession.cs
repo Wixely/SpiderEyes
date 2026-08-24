@@ -32,62 +32,114 @@ public sealed class BrowserSession : IAsyncDisposable
     private PendingDialogAction? _nextDialogAction;
     private bool _tracingStarted;
     private EmulationSettings? _emulationOverride;
+    private string? _pendingInitialStorageStatePath;
+    private int _activeCommands;
+    private volatile bool _disposed;
 
     public BrowserSession(
         string sessionId,
+        string instanceName,
+        BrowserInstanceOverrides? overrides,
         PlaywrightMCPSharpOptions options,
         PlaywrightRuntimeService playwrightRuntimeService,
         ILogger<BrowserSession> logger)
     {
         SessionId = sessionId;
+        InstanceName = instanceName;
+        Overrides = overrides ?? new BrowserInstanceOverrides();
         _options = options;
         _playwrightRuntimeService = playwrightRuntimeService;
         _logger = logger;
 
-        ArtifactDirectory = Path.GetFullPath(Path.Combine(_options.Session.ArtifactRoot, sessionId));
+        ArtifactDirectory = Path.GetFullPath(Path.Combine(_options.Session.ArtifactRoot, sessionId, instanceName));
         Directory.CreateDirectory(ArtifactDirectory);
+        _pendingInitialStorageStatePath = Overrides.InitialStorageStatePath;
     }
 
     public string SessionId { get; }
 
+    public string InstanceName { get; }
+
+    public BrowserInstanceOverrides Overrides { get; }
+
     public string ArtifactDirectory { get; }
 
+    public DateTimeOffset CreatedUtc { get; } = DateTimeOffset.UtcNow;
+
     public DateTimeOffset LastAccessUtc { get; private set; } = DateTimeOffset.UtcNow;
+
+    public string EffectiveBrowserType => Overrides.BrowserType ?? _options.Browser.BrowserType;
+
+    public bool EffectiveHeadless => Overrides.Headless ?? _options.Browser.Headless;
+
+    public bool IsStarted => _browser is not null;
+
+    public bool HasActiveCommand => Volatile.Read(ref _activeCommands) > 0;
+
+    public bool IsDisposed => _disposed;
 
     public void Touch() => LastAccessUtc = DateTimeOffset.UtcNow;
 
     public async Task<T> RunExclusiveAsync<T>(Func<BrowserSession, CancellationToken, Task<T>> action, CancellationToken cancellationToken)
     {
-        await _lock.WaitAsync(cancellationToken);
+        Interlocked.Increment(ref _activeCommands);
         try
         {
-            Touch();
-            return await action(this, cancellationToken);
+            await _lock.WaitAsync(cancellationToken);
+            try
+            {
+                ThrowIfDisposed();
+                Touch();
+                return await action(this, cancellationToken);
+            }
+            finally
+            {
+                _lock.Release();
+            }
         }
         finally
         {
-            _lock.Release();
+            Interlocked.Decrement(ref _activeCommands);
         }
     }
 
+    public object GetInstanceStatus() => new
+    {
+        instanceName = InstanceName,
+        sessionId = SessionId,
+        browserType = EffectiveBrowserType,
+        headless = EffectiveHeadless,
+        started = IsStarted,
+        connected = _browser?.IsConnected ?? false,
+        tabCount = _pages.Count,
+        busy = HasActiveCommand,
+        createdUtc = CreatedUtc,
+        lastAccessUtc = LastAccessUtc,
+        artifactDirectory = ArtifactDirectory,
+    };
+
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         if (_browser is not null && _context is not null)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_options.Browser.Channel) &&
-            !_playwrightRuntimeService.IsBrowserInstalled(_options.Browser.BrowserType))
+        var browserType = EffectiveBrowserType;
+        if (string.IsNullOrWhiteSpace(GetEffectiveChannel()) &&
+            !_playwrightRuntimeService.IsBrowserInstalled(browserType))
         {
             throw new InvalidOperationException(
-                $"Playwright browser runtime '{_options.Browser.BrowserType}' is not installed on this machine. " +
-                $"Call the MCP tool 'browser_install_runtime' or run '{_playwrightRuntimeService.GetSuggestedInstallCommand(_options.Browser.BrowserType)}' on the host.");
+                $"Playwright browser runtime '{browserType}' is not installed on this machine. " +
+                $"Call the MCP tool 'browser_install_runtime' or run '{_playwrightRuntimeService.GetSuggestedInstallCommand(browserType)}' on the host.");
         }
 
         _playwright ??= await Playwright.CreateAsync();
         _browser ??= await LaunchBrowserAsync(cancellationToken);
-        await RecreateContextAsync(null, cancellationToken);
+        var initialStorageStatePath = _pendingInitialStorageStatePath;
+        _pendingInitialStorageStatePath = null;
+        await RecreateContextAsync(initialStorageStatePath, cancellationToken);
     }
 
     public async Task<IPage> GetPageAsync(string? tabId, bool createIfMissing, CancellationToken cancellationToken)
@@ -286,7 +338,7 @@ public sealed class BrowserSession : IAsyncDisposable
         _currentTabId = null;
         _tracingStarted = false;
 
-        var downloadsPath = Path.GetFullPath(Path.Combine(_options.Browser.DownloadsPath, SessionId));
+        var downloadsPath = Path.GetFullPath(Path.Combine(_options.Browser.DownloadsPath, SessionId, InstanceName));
         Directory.CreateDirectory(downloadsPath);
 
         var contextOptions = BuildContextOptions(storageStatePath);
@@ -349,7 +401,7 @@ public sealed class BrowserSession : IAsyncDisposable
 
         await _context.Tracing.StartAsync(new()
         {
-            Title = title ?? $"PlaywrightMCPSharp {SessionId}",
+            Title = title ?? $"PlaywrightMCPSharp {SessionId}/{InstanceName}",
             Screenshots = true,
             Snapshots = true,
             Sources = true,
@@ -391,19 +443,49 @@ public sealed class BrowserSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_context is not null)
+        if (_disposed)
         {
-            await _context.CloseAsync();
+            return;
         }
 
-        if (_browser is not null)
-        {
-            await _browser.CloseAsync();
-        }
+        _disposed = true;
 
-        _playwright?.Dispose();
-        _lock.Dispose();
+        // Wait for any in-flight command before tearing the browser down; later
+        // waiters observe _disposed after acquiring the lock and fail deterministically.
+        await _lock.WaitAsync();
+        try
+        {
+            if (_context is not null)
+            {
+                await _context.CloseAsync();
+            }
+
+            if (_browser is not null)
+            {
+                await _browser.CloseAsync();
+            }
+
+            _playwright?.Dispose();
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new InvalidOperationException($"Browser instance '{InstanceName}' has been closed.");
+        }
+    }
+
+    private string? GetEffectiveChannel()
+        => Overrides.BrowserType is not null &&
+           !string.Equals(Overrides.BrowserType, _options.Browser.BrowserType, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : _options.Browser.Channel;
 
     private BrowserNewContextOptions BuildContextOptions(string? storageStatePath)
     {
@@ -490,12 +572,12 @@ public sealed class BrowserSession : IAsyncDisposable
     {
         BrowserTypeLaunchOptions launchOptions = new()
         {
-            Channel = _options.Browser.Channel,
-            Headless = _options.Browser.Headless,
+            Channel = GetEffectiveChannel(),
+            Headless = EffectiveHeadless,
             SlowMo = _options.Browser.SlowMoMs,
         };
 
-        return _options.Browser.BrowserType.ToLowerInvariant() switch
+        return EffectiveBrowserType.ToLowerInvariant() switch
         {
             "firefox" => await _playwright!.Firefox.LaunchAsync(launchOptions),
             "webkit" => await _playwright!.Webkit.LaunchAsync(launchOptions),
@@ -706,6 +788,15 @@ public sealed class BrowserSession : IAsyncDisposable
         public string? AbortErrorCode { get; init; }
     }
 }
+
+/// <summary>
+/// Per-instance launch overrides supplied at browser_instance_create time. Null values
+/// fall back to the server's configured browser defaults.
+/// </summary>
+public sealed record BrowserInstanceOverrides(
+    string? BrowserType = null,
+    bool? Headless = null,
+    string? InitialStorageStatePath = null);
 
 internal static class WildcardMatcher
 {

@@ -228,6 +228,12 @@ static void ConfigureToolCatalog(IMcpServerBuilder builder, PlaywrightMCPSharpOp
         .WithTools<CoreBrowserTools>()
         .WithTools<NetworkStorageBrowserTools>()
         .WithTools<DevtoolsBrowserTools>();
+
+    // The Claude-compatible catalog stays instance-unaware pending an explicit migration decision.
+    if (options.Features.NamedInstances)
+    {
+        builder.WithTools<InstanceBrowserTools>();
+    }
 }
 
 static IConfigurationRoot BuildBootstrapConfiguration(string[] args)
@@ -401,7 +407,9 @@ static List<string> GetEnabledToolNames(PlaywrightMCPSharpOptions options)
 {
     var toolTypes = options.Features.ClaudeCompatibleToolCatalog
         ? [typeof(ClaudeCompatibleBrowserTools)]
-        : new[] { typeof(CoreBrowserTools), typeof(NetworkStorageBrowserTools), typeof(DevtoolsBrowserTools) };
+        : options.Features.NamedInstances
+            ? new[] { typeof(CoreBrowserTools), typeof(NetworkStorageBrowserTools), typeof(DevtoolsBrowserTools), typeof(InstanceBrowserTools) }
+            : new[] { typeof(CoreBrowserTools), typeof(NetworkStorageBrowserTools), typeof(DevtoolsBrowserTools) };
 
     return toolTypes
         .SelectMany(static toolType => toolType
