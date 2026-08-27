@@ -12,6 +12,12 @@ public sealed class BrowserSession : IAsyncDisposable
 {
     private static readonly Regex RefPattern = new("^(?:ref=)?(?:e\\d+|f\\d+e\\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>How long disposal waits for an in-flight command before tearing down regardless.</summary>
+    private static readonly TimeSpan DisposeLockTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>How long each individual teardown step may run before it is abandoned.</summary>
+    private static readonly TimeSpan DisposeStepTimeout = TimeSpan.FromSeconds(10);
+
     private readonly PlaywrightMCPSharpOptions _options;
     private readonly PlaywrightRuntimeService _playwrightRuntimeService;
     private readonly ILogger<BrowserSession> _logger;
@@ -53,6 +59,8 @@ public sealed class BrowserSession : IAsyncDisposable
 
         ArtifactDirectory = Path.GetFullPath(Path.Combine(_options.Session.ArtifactRoot, sessionId, instanceName));
         Directory.CreateDirectory(ArtifactDirectory);
+        DownloadsDirectory = Path.GetFullPath(Path.Combine(_options.Browser.DownloadsPath, sessionId, instanceName));
+        Directory.CreateDirectory(DownloadsDirectory);
         _pendingInitialStorageStatePath = Overrides.InitialStorageStatePath;
     }
 
@@ -63,6 +71,9 @@ public sealed class BrowserSession : IAsyncDisposable
     public BrowserInstanceOverrides Overrides { get; }
 
     public string ArtifactDirectory { get; }
+
+    /// <summary>Directory that Playwright writes this instance's accepted downloads into.</summary>
+    public string DownloadsDirectory { get; }
 
     public DateTimeOffset CreatedUtc { get; } = DateTimeOffset.UtcNow;
 
@@ -146,13 +157,30 @@ public sealed class BrowserSession : IAsyncDisposable
     {
         await EnsureStartedAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(tabId) && _pages.TryGetValue(tabId, out var page))
+        if (!string.IsNullOrWhiteSpace(tabId))
         {
+            // An unknown tab id must fail rather than silently retargeting this instance's current
+            // tab. Two different mistakes land here - a handle from another instance, and a handle
+            // that has since been closed or invalidated by a context recreation - so the message
+            // states both possibilities instead of asserting the cross-instance one.
+            if (!_pages.TryGetValue(tabId, out var requested))
+            {
+                var knownTabs = _pages.Count == 0
+                    ? "none"
+                    : string.Join(", ", _pages.Keys.OrderBy(static key => key, StringComparer.Ordinal));
+
+                throw new InvalidOperationException(
+                    $"Tab '{tabId}' is not open in browser instance '{InstanceName}' of session '{SessionId}'. " +
+                    $"Tabs open in this instance: {knownTabs}. Either the tab was closed (or invalidated by a " +
+                    "context reset), or the identifier belongs to a different instance - tab identifiers are " +
+                    "scoped to one instance. Call browser_tabs for the current list.");
+            }
+
             _currentTabId = tabId;
-            return page;
+            return requested;
         }
 
-        if (_currentTabId is not null && _pages.TryGetValue(_currentTabId, out page))
+        if (_currentTabId is not null && _pages.TryGetValue(_currentTabId, out var page))
         {
             return page;
         }
@@ -338,9 +366,6 @@ public sealed class BrowserSession : IAsyncDisposable
         _currentTabId = null;
         _tracingStarted = false;
 
-        var downloadsPath = Path.GetFullPath(Path.Combine(_options.Browser.DownloadsPath, SessionId, InstanceName));
-        Directory.CreateDirectory(downloadsPath);
-
         var contextOptions = BuildContextOptions(storageStatePath);
 
         _context = await _browser.NewContextAsync(contextOptions);
@@ -450,26 +475,85 @@ public sealed class BrowserSession : IAsyncDisposable
 
         _disposed = true;
 
-        // Wait for any in-flight command before tearing the browser down; later
-        // waiters observe _disposed after acquiring the lock and fail deterministically.
-        await _lock.WaitAsync();
+        var lockAcquired = false;
         try
         {
-            if (_context is not null)
+            // Wait for any in-flight command before tearing the browser down; later waiters
+            // observe _disposed after acquiring the lock and fail deterministically. The wait
+            // is bounded because callers dispose instances one after another, so a hung
+            // command here would otherwise stall cleanup for every other instance.
+            lockAcquired = await _lock.WaitAsync(DisposeLockTimeout);
+            if (!lockAcquired)
             {
-                await _context.CloseAsync();
+                _logger.LogWarning(
+                    "Browser instance '{Instance}' in session '{Session}' was still busy after {TimeoutSeconds}s; closing it anyway.",
+                    InstanceName,
+                    SessionId,
+                    DisposeLockTimeout.TotalSeconds);
             }
 
-            if (_browser is not null)
-            {
-                await _browser.CloseAsync();
-            }
-
-            _playwright?.Dispose();
+            // Each step is isolated so a crashed browser cannot skip the steps that follow.
+            await RunTeardownStepAsync("close the browser context", () => _context?.CloseAsync() ?? Task.CompletedTask);
+            await RunTeardownStepAsync("close the browser", () => _browser?.CloseAsync() ?? Task.CompletedTask);
+            await RunTeardownStepAsync("dispose the Playwright driver", () => Task.Run(() => _playwright?.Dispose()));
+        }
+        catch (Exception ex)
+        {
+            // Disposal is best effort and must never throw at the caller.
+            _logger.LogError(
+                ex,
+                "Unexpected failure closing browser instance '{Instance}' in session '{Session}'.",
+                InstanceName,
+                SessionId);
         }
         finally
         {
-            _lock.Release();
+            if (lockAcquired)
+            {
+                try
+                {
+                    _lock.Release();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to release the command lock for browser instance '{Instance}'.", InstanceName);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs one teardown step, bounding how long it may block and swallowing any failure so
+    /// the remaining steps still run. Never throws.
+    /// </summary>
+    private async Task RunTeardownStepAsync(string description, Func<Task> step)
+    {
+        try
+        {
+            var task = step();
+            if (await Task.WhenAny(task, Task.Delay(DisposeStepTimeout)) != task)
+            {
+                // Observe any later fault so it does not resurface as an unobserved exception.
+                _ = task.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                _logger.LogWarning(
+                    "Timed out after {TimeoutSeconds}s trying to {Step} for browser instance '{Instance}' in session '{Session}'.",
+                    DisposeStepTimeout.TotalSeconds,
+                    description,
+                    InstanceName,
+                    SessionId);
+                return;
+            }
+
+            await task;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to {Step} for browser instance '{Instance}' in session '{Session}'.",
+                description,
+                InstanceName,
+                SessionId);
         }
     }
 
@@ -575,6 +659,10 @@ public sealed class BrowserSession : IAsyncDisposable
             Channel = GetEffectiveChannel(),
             Headless = EffectiveHeadless,
             SlowMo = _options.Browser.SlowMoMs,
+            // Keeps accepted downloads in this instance's own folder rather than the
+            // shared Playwright temp directory. Downloads are a browser-level setting,
+            // so this must be applied here and not on the context options.
+            DownloadsPath = DownloadsDirectory,
         };
 
         return EffectiveBrowserType.ToLowerInvariant() switch

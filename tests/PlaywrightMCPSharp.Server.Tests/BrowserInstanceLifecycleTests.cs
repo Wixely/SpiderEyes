@@ -169,6 +169,95 @@ public sealed class BrowserInstanceLifecycleTests : IDisposable
         Assert.True(Directory.Exists(b.ArtifactDirectory));
     }
 
+    [Fact]
+    public async Task DownloadsDirectories_AreIsolatedPerInstance()
+    {
+        var a = await _manager.CreateInstanceAsync("session-1", "agent-a", null, CancellationToken.None);
+        var b = await _manager.CreateInstanceAsync("session-1", "agent-b", null, CancellationToken.None);
+
+        Assert.NotEqual(a.DownloadsDirectory, b.DownloadsDirectory);
+        Assert.True(Directory.Exists(a.DownloadsDirectory));
+        Assert.True(Directory.Exists(b.DownloadsDirectory));
+    }
+
+    [Fact]
+    public async Task StopAsync_DisposesEveryInstance()
+    {
+        var a = await _manager.CreateInstanceAsync("session-1", "agent-a", null, CancellationToken.None);
+        var b = await _manager.CreateInstanceAsync("session-2", "agent-b", null, CancellationToken.None);
+        var defaultSession = await _manager.GetAsync("session-3", null, CancellationToken.None);
+
+        await _manager.StopAsync(CancellationToken.None);
+
+        Assert.True(a.IsDisposed);
+        Assert.True(b.IsDisposed);
+        Assert.True(defaultSession.IsDisposed);
+        Assert.Empty(_manager.ListInstances("session-1"));
+    }
+
+    [Fact]
+    public async Task ConcurrentCreate_OfTheSameName_AdmitsExactlyOne()
+    {
+        // Creation is explicit and atomic: the losers must fail rather than quietly returning
+        // the winner's instance, which would hand two agents the same browser.
+        var attempts = Enumerable.Range(0, 8)
+            .Select(_ => Task.Run(() => _manager.CreateInstanceAsync("session-1", "agent-a", null, CancellationToken.None)))
+            .ToArray();
+
+        var outcomes = await Task.WhenAll(attempts.Select(async task =>
+        {
+            try
+            {
+                return (Session: await task, Failed: false);
+            }
+            catch (InvalidOperationException)
+            {
+                return (Session: null!, Failed: true);
+            }
+        }));
+
+        var created = outcomes.Where(o => !o.Failed).ToArray();
+        Assert.Single(created);
+        Assert.Equal(7, outcomes.Count(o => o.Failed));
+        Assert.Single(_manager.ListInstances("session-1"));
+        Assert.Same(created[0].Session, await _manager.GetAsync("session-1", "agent-a", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ConcurrentCreateAndClose_LeaveConsistentState()
+    {
+        // Interleaving create and close on one name must never leave a live entry pointing at a
+        // disposed session, nor a disposed session reachable through GetAsync.
+        for (var round = 0; round < 20; round++)
+        {
+            var create = Task.Run(() => _manager.CreateInstanceAsync("session-1", "agent-a", null, CancellationToken.None));
+            var close = Task.Run(() => _manager.CloseInstanceAsync("session-1", "agent-a"));
+
+            BrowserSession? created = null;
+            try
+            {
+                created = await create;
+            }
+            catch (InvalidOperationException)
+            {
+                // Lost the race against an existing instance; nothing to assert for this round.
+            }
+
+            await close;
+
+            var live = _manager.ListInstances("session-1");
+            Assert.All(live, session => Assert.False(session.IsDisposed));
+
+            if (created is not null && live.Contains(created))
+            {
+                Assert.False(created.IsDisposed);
+            }
+
+            await _manager.CloseInstanceAsync("session-1", "agent-a");
+            Assert.Empty(_manager.ListInstances("session-1"));
+        }
+    }
+
     private sealed class StaticOptionsMonitor : IOptionsMonitor<PlaywrightMCPSharpOptions>
     {
         public StaticOptionsMonitor(PlaywrightMCPSharpOptions value) => CurrentValue = value;

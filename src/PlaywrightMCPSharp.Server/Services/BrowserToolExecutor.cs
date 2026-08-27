@@ -47,7 +47,7 @@ public sealed class BrowserToolExecutor
                 Message: $"Navigated to {page.Url}.");
         }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> NavigateBackAsync(McpServer server, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> NavigateBackAsync(McpServer server, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_navigate_back", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -56,9 +56,9 @@ public sealed class BrowserToolExecutor
                 Data: new { url = page.Url, status = response?.Status },
                 TabId: GetTabId(session, page),
                 Message: "Navigated back.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> CloseAsync(McpServer server, string? tabId, bool closeAll, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> CloseAsync(McpServer server, string? tabId, bool closeAll, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_close", PageCaptureMode.Summary, async (session, ct) =>
         {
             if (!session.HasPages)
@@ -82,26 +82,26 @@ public sealed class BrowserToolExecutor
             var closedTabId = GetTabId(session, pageToClose);
             await pageToClose.CloseAsync();
             return new BrowserActionPayload(Data: new { closedTabId }, Message: $"Closed tab {closedTabId}.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> TabsAsync(McpServer server, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> TabsAsync(McpServer server, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_tabs", PageCaptureMode.Summary, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             var pageState = await session.BuildPageStateAsync(null, includeSnapshot: false, ct);
             return new BrowserActionPayload(Data: new { tabs = pageState?.Tabs ?? [] }, Message: "Listed tabs.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public Task<BrowserCommandResult> SnapshotAsync(McpServer server, string? tabId, string? instanceName, CancellationToken cancellationToken)
-        => ExecuteAsync(server, "browser_snapshot", PageCaptureMode.Snapshot, static async (session, ct) =>
+        => ExecuteAsync(server, "browser_snapshot", PageCaptureMode.Snapshot, async (session, ct) =>
         {
-            var page = await session.GetPageAsync(null, true, ct);
+            var page = await session.GetPageAsync(tabId, true, ct);
             return new BrowserActionPayload(TabId: tabIdOrCurrent(session, page), Message: "Captured page snapshot.");
 
             static string tabIdOrCurrent(BrowserSession session, IPage page) => GetTabId(session, page);
         }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> ScreenshotAsync(McpServer server, string? tabId, string? fileName, bool fullPage, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> ScreenshotAsync(McpServer server, string? tabId, string? fileName, bool fullPage, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_take_screenshot", PageCaptureMode.Summary, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -112,9 +112,9 @@ public sealed class BrowserToolExecutor
                 TabId: GetTabId(session, page),
                 Message: "Saved screenshot.",
                 Artifacts: [new ArtifactInfo { Name = Path.GetFileName(path), Path = path, MimeType = "image/png" }]);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> ClickAsync(McpServer server, string target, string? tabId, bool doubleClick, string? button, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> ClickAsync(McpServer server, string target, string? tabId, bool doubleClick, string? button, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_click", target, tabId, PageCaptureMode.Snapshot, async (session, page, locator, ct) =>
         {
             var mouseButton = ParseMouseButton(button);
@@ -128,16 +128,16 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Clicked target.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> HoverAsync(McpServer server, string target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> HoverAsync(McpServer server, string target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_hover", target, tabId, PageCaptureMode.Snapshot, async (session, page, locator, ct) =>
         {
             await locator.HoverAsync();
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Hovered target.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> DragAsync(McpServer server, string sourceTarget, string targetTarget, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> DragAsync(McpServer server, string sourceTarget, string targetTarget, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_drag", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -145,9 +145,9 @@ public sealed class BrowserToolExecutor
             var destination = session.ResolveTarget(page, targetTarget);
             await source.DragToAsync(destination);
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Dragged between targets.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> TypeAsync(McpServer server, string target, string text, string? tabId, bool submit, bool slowly, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> TypeAsync(McpServer server, string target, string text, string? tabId, bool submit, bool slowly, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_type", target, tabId, PageCaptureMode.Snapshot, async (session, page, locator, ct) =>
         {
             if (slowly)
@@ -166,9 +166,9 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Entered text.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> FillFormAsync(McpServer server, IReadOnlyList<FormFieldInput> fields, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> FillFormAsync(McpServer server, IReadOnlyList<FormFieldInput> fields, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_fill_form", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -193,16 +193,16 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(Data: new { fieldCount = fields.Count }, TabId: GetTabId(session, page), Message: "Filled form fields.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> SelectOptionAsync(McpServer server, string target, IReadOnlyList<string> values, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> SelectOptionAsync(McpServer server, string target, IReadOnlyList<string> values, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_select_option", target, tabId, PageCaptureMode.Snapshot, async (session, page, locator, ct) =>
         {
             await locator.SelectOptionAsync(values);
             return new BrowserActionPayload(Data: new { values }, TabId: GetTabId(session, page), Message: "Selected option(s).");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> PressKeyAsync(McpServer server, string key, string? target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> PressKeyAsync(McpServer server, string key, string? target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_press_key", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -217,9 +217,9 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: $"Pressed key {key}.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> WaitForAsync(McpServer server, string? text, string? textGone, double? timeSeconds, string? target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> WaitForAsync(McpServer server, string? text, string? textGone, double? timeSeconds, string? target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_wait_for", PageCaptureMode.Summary, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -244,9 +244,9 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Completed wait.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> ResizeAsync(McpServer server, int? width, int? height, string? preset, string? orientation, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> ResizeAsync(McpServer server, int? width, int? height, string? preset, string? orientation, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_resize", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             int resolvedWidth;
@@ -282,7 +282,7 @@ public sealed class BrowserToolExecutor
                 Message: appliedPreset is null
                     ? $"Resized viewport to {resolvedWidth}x{resolvedHeight}."
                     : $"Resized viewport to {appliedPreset} ({resolvedWidth}x{resolvedHeight}).");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public Task<BrowserCommandResult> ListViewportPresetsAsync(McpServer server, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_list_viewport_presets", PageCaptureMode.None, async (session, ct) =>
@@ -318,6 +318,7 @@ public sealed class BrowserToolExecutor
         bool? hasTouch,
         float? deviceScaleFactor,
         bool reset,
+        string? instanceName,
         CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_emulate_device", PageCaptureMode.Snapshot, async (session, ct) =>
         {
@@ -365,7 +366,7 @@ public sealed class BrowserToolExecutor
                 Data: session.GetEffectiveEmulation(),
                 Message: reset ? "Reset emulation to configured defaults." : "Applied device emulation.",
                 Warnings: ["Changing emulation recreates the browser context; open tabs, cookies, and in-memory storage were cleared."]);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public Task<BrowserCommandResult> ListDevicesAsync(McpServer server, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_list_devices", PageCaptureMode.None, async (session, ct) =>
@@ -376,15 +377,15 @@ public sealed class BrowserToolExecutor
                 Message: $"Listed {devices.Count} emulation devices.");
         }, cancellationToken);
 
-    public Task<BrowserCommandResult> HandleDialogAsync(McpServer server, string action, string? promptText, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> HandleDialogAsync(McpServer server, string action, string? promptText, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_handle_dialog", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             session.ArmNextDialog(action, promptText);
             return new BrowserActionPayload(Data: new { armed = true, dialogs = session.GetDialogs() }, Message: "Armed next dialog action.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> FileUploadAsync(McpServer server, string target, IReadOnlyList<string> paths, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> FileUploadAsync(McpServer server, string target, IReadOnlyList<string> paths, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_file_upload", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -392,21 +393,21 @@ public sealed class BrowserToolExecutor
             var resolvedPaths = await _fileAccessService.ResolveReadablePathsAsync(session, server, paths, ct);
             await locator.SetInputFilesAsync(resolvedPaths);
             return new BrowserActionPayload(Data: new { files = resolvedPaths }, TabId: GetTabId(session, page), Message: "Uploaded files.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> ConsoleMessagesAsync(McpServer server, int limit, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> ConsoleMessagesAsync(McpServer server, int limit, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_console_messages", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             return new BrowserActionPayload(Data: new { entries = session.GetConsoleEntries(limit) }, Message: "Collected console messages.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> NetworkRequestsAsync(McpServer server, int limit, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> NetworkRequestsAsync(McpServer server, int limit, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_network_requests", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             return new BrowserActionPayload(Data: new { entries = session.GetNetworkEntries(limit) }, Message: "Collected network requests.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public Task<BrowserCommandResult> EvaluateAsync(McpServer server, string expression, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_evaluate", PageCaptureMode.Summary, async (session, ct) =>
@@ -416,7 +417,7 @@ public sealed class BrowserToolExecutor
             return new BrowserActionPayload(Data: JsonSerializer.Deserialize<object>(result.GetRawText()), TabId: GetTabId(session, page), Message: "Evaluated JavaScript.");
         }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> GetConfigAsync(McpServer server, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> GetConfigAsync(McpServer server, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_get_config", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
@@ -445,49 +446,49 @@ public sealed class BrowserToolExecutor
                 emulation = session.GetEffectiveEmulation(),
                 features = options.Features,
             }, Message: "Loaded effective configuration.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> SetNetworkStateAsync(McpServer server, bool offline, Dictionary<string, string>? headers, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> SetNetworkStateAsync(McpServer server, bool offline, Dictionary<string, string>? headers, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_network_state_set", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             await session.SetOfflineAsync(offline);
             await session.SetExtraHttpHeadersAsync(headers);
             return new BrowserActionPayload(Data: new { offline, headers }, Message: "Updated network state.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> RouteAsync(McpServer server, RouteMutation mutation, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> RouteAsync(McpServer server, RouteMutation mutation, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_route", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             var routeId = session.AddRoute(mutation);
             return new BrowserActionPayload(Data: new { routeId }, Message: "Added route rule.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> RouteListAsync(McpServer server, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> RouteListAsync(McpServer server, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_route_list", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             return new BrowserActionPayload(Data: new { routes = session.GetRoutes() }, Message: "Listed route rules.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> UnrouteAsync(McpServer server, string routeId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> UnrouteAsync(McpServer server, string routeId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_unroute", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             return new BrowserActionPayload(Data: new { removed = session.RemoveRoute(routeId), routeId }, Message: "Removed route rule.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> CookieGetAsync(McpServer server, string? name, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> CookieGetAsync(McpServer server, string? name, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_cookie_get", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(null, true, ct);
             var cookies = await page.Context.CookiesAsync();
             var filtered = string.IsNullOrWhiteSpace(name) ? cookies : cookies.Where(cookie => string.Equals(cookie.Name, name, StringComparison.Ordinal)).ToArray();
             return new BrowserActionPayload(Data: new { cookies = filtered }, Message: "Loaded cookies.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> CookieSetAsync(McpServer server, CookieMutation cookie, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> CookieSetAsync(McpServer server, CookieMutation cookie, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_cookie_set", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(null, true, ct);
@@ -507,9 +508,9 @@ public sealed class BrowserToolExecutor
                 }
             ]);
             return new BrowserActionPayload(Data: new { cookie.Name }, Message: "Cookie added.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> CookieDeleteAsync(McpServer server, string name, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> CookieDeleteAsync(McpServer server, string name, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_cookie_delete", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(null, true, ct);
@@ -519,42 +520,42 @@ public sealed class BrowserToolExecutor
             await File.WriteAllTextAsync(statePath, JsonSerializer.Serialize(new { cookies = survivors }), ct);
             await session.RecreateContextAsync(statePath, ct);
             return new BrowserActionPayload(Data: new { removedName = name }, Message: "Cookie removed by recreating context.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> CookieClearAsync(McpServer server, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> CookieClearAsync(McpServer server, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_cookie_clear", PageCaptureMode.None, async (session, ct) =>
         {
             var emptyState = session.CreateArtifactPath("storage-empty", ".json");
             await File.WriteAllTextAsync(emptyState, "{\"cookies\":[],\"origins\":[]}", ct);
             await session.RecreateContextAsync(emptyState, ct);
             return new BrowserActionPayload(Message: "Cleared cookies by recreating context.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> LocalStorageGetAsync(McpServer server, string? key, string? tabId, CancellationToken cancellationToken)
-        => StorageGetAsync(server, "browser_localstorage_get", "localStorage", key, tabId, cancellationToken);
+    public Task<BrowserCommandResult> LocalStorageGetAsync(McpServer server, string? key, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageGetAsync(server, "browser_localstorage_get", "localStorage", key, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> LocalStorageSetAsync(McpServer server, string key, string value, string? tabId, CancellationToken cancellationToken)
-        => StorageSetAsync(server, "browser_localstorage_set", "localStorage", key, value, tabId, cancellationToken);
+    public Task<BrowserCommandResult> LocalStorageSetAsync(McpServer server, string key, string value, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageSetAsync(server, "browser_localstorage_set", "localStorage", key, value, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> LocalStorageRemoveAsync(McpServer server, string key, string? tabId, CancellationToken cancellationToken)
-        => StorageRemoveAsync(server, "browser_localstorage_remove", "localStorage", key, tabId, cancellationToken);
+    public Task<BrowserCommandResult> LocalStorageRemoveAsync(McpServer server, string key, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageRemoveAsync(server, "browser_localstorage_remove", "localStorage", key, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> LocalStorageClearAsync(McpServer server, string? tabId, CancellationToken cancellationToken)
-        => StorageClearAsync(server, "browser_localstorage_clear", "localStorage", tabId, cancellationToken);
+    public Task<BrowserCommandResult> LocalStorageClearAsync(McpServer server, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageClearAsync(server, "browser_localstorage_clear", "localStorage", tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> SessionStorageGetAsync(McpServer server, string? key, string? tabId, CancellationToken cancellationToken)
-        => StorageGetAsync(server, "browser_sessionstorage_get", "sessionStorage", key, tabId, cancellationToken);
+    public Task<BrowserCommandResult> SessionStorageGetAsync(McpServer server, string? key, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageGetAsync(server, "browser_sessionstorage_get", "sessionStorage", key, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> SessionStorageSetAsync(McpServer server, string key, string value, string? tabId, CancellationToken cancellationToken)
-        => StorageSetAsync(server, "browser_sessionstorage_set", "sessionStorage", key, value, tabId, cancellationToken);
+    public Task<BrowserCommandResult> SessionStorageSetAsync(McpServer server, string key, string value, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageSetAsync(server, "browser_sessionstorage_set", "sessionStorage", key, value, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> SessionStorageRemoveAsync(McpServer server, string key, string? tabId, CancellationToken cancellationToken)
-        => StorageRemoveAsync(server, "browser_sessionstorage_remove", "sessionStorage", key, tabId, cancellationToken);
+    public Task<BrowserCommandResult> SessionStorageRemoveAsync(McpServer server, string key, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageRemoveAsync(server, "browser_sessionstorage_remove", "sessionStorage", key, tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> SessionStorageClearAsync(McpServer server, string? tabId, CancellationToken cancellationToken)
-        => StorageClearAsync(server, "browser_sessionstorage_clear", "sessionStorage", tabId, cancellationToken);
+    public Task<BrowserCommandResult> SessionStorageClearAsync(McpServer server, string? tabId, string? instanceName, CancellationToken cancellationToken)
+        => StorageClearAsync(server, "browser_sessionstorage_clear", "sessionStorage", tabId, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> StorageStateAsync(McpServer server, string? fileName, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> StorageStateAsync(McpServer server, string? fileName, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_storage_state", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(null, true, ct);
@@ -565,9 +566,9 @@ public sealed class BrowserToolExecutor
                 Data: JsonSerializer.Deserialize<object>(json),
                 Message: "Exported storage state.",
                 Artifacts: [new ArtifactInfo { Name = Path.GetFileName(path), Path = path, MimeType = "application/json" }]);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> SetStorageStateAsync(McpServer server, string? fileName, string? json, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> SetStorageStateAsync(McpServer server, string? fileName, string? json, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_set_storage_state", PageCaptureMode.Summary, async (session, ct) =>
         {
             string path;
@@ -583,9 +584,9 @@ public sealed class BrowserToolExecutor
 
             await session.RecreateContextAsync(path, ct);
             return new BrowserActionPayload(Data: new { path }, Message: "Recreated browser context with storage state.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> HighlightAsync(McpServer server, string target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> HighlightAsync(McpServer server, string target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_highlight", target, tabId, PageCaptureMode.Summary, async (session, page, locator, ct) =>
         {
             await locator.EvaluateAllAsync<object>(
@@ -599,9 +600,9 @@ public sealed class BrowserToolExecutor
                 }
                 """);
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Highlighted target.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> HideHighlightAsync(McpServer server, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> HideHighlightAsync(McpServer server, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_hide_highlight", PageCaptureMode.Summary, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -620,9 +621,9 @@ public sealed class BrowserToolExecutor
             }
 
             return new BrowserActionPayload(TabId: GetTabId(session, page), Message: "Removed highlights.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> GenerateLocatorAsync(McpServer server, string target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> GenerateLocatorAsync(McpServer server, string target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_generate_locator", target, tabId, PageCaptureMode.None, async (session, page, locator, ct) =>
         {
             var meta = await locator.EvaluateAsync<JsonElement>(
@@ -640,17 +641,17 @@ public sealed class BrowserToolExecutor
                 """);
             var locators = BuildLocatorSuggestions(meta);
             return new BrowserActionPayload(Data: new { target, suggestions = locators }, Message: "Generated locator suggestions.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> StartTracingAsync(McpServer server, string? title, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> StartTracingAsync(McpServer server, string? title, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_start_tracing", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
             await session.StartTracingAsync(title);
             return new BrowserActionPayload(Message: "Started tracing.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> StopTracingAsync(McpServer server, string? fileName, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> StopTracingAsync(McpServer server, string? fileName, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_stop_tracing", PageCaptureMode.None, async (session, ct) =>
         {
             await session.EnsureStartedAsync(ct);
@@ -659,33 +660,33 @@ public sealed class BrowserToolExecutor
                 Data: new { path },
                 Message: "Stopped tracing.",
                 Artifacts: [new ArtifactInfo { Name = Path.GetFileName(path), Path = path, MimeType = "application/zip" }]);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> VerifyElementVisibleAsync(McpServer server, string target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> VerifyElementVisibleAsync(McpServer server, string target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_verify_element_visible", target, tabId, PageCaptureMode.None, async (session, page, locator, ct) =>
         {
             var visible = await locator.IsVisibleAsync();
             return new BrowserActionPayload(Data: new { target, visible }, Message: visible ? "Element is visible." : "Element is not visible.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> VerifyTextVisibleAsync(McpServer server, string text, bool exact, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> VerifyTextVisibleAsync(McpServer server, string text, bool exact, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_verify_text_visible", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             var locator = page.GetByText(text, new() { Exact = exact }).First;
             var visible = await locator.IsVisibleAsync();
             return new BrowserActionPayload(Data: new { text, exact, visible }, Message: visible ? "Text is visible." : "Text is not visible.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> VerifyValueAsync(McpServer server, string target, string expectedValue, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> VerifyValueAsync(McpServer server, string target, string expectedValue, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteTargetAsync(server, "browser_verify_value", target, tabId, PageCaptureMode.None, async (session, page, locator, ct) =>
         {
             var actual = await locator.InputValueAsync();
             var matches = string.Equals(actual, expectedValue, StringComparison.Ordinal);
             return new BrowserActionPayload(Data: new { expectedValue, actual, matches }, Message: matches ? "Value matches." : "Value does not match.");
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> VerifyListVisibleAsync(McpServer server, IReadOnlyList<string> items, string? target, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> VerifyListVisibleAsync(McpServer server, IReadOnlyList<string> items, string? target, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_verify_list_visible", PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -702,24 +703,24 @@ public sealed class BrowserToolExecutor
             var haystack = string.Join("\n", texts);
             var missing = items.Where(item => !haystack.Contains(item, StringComparison.OrdinalIgnoreCase)).ToArray();
             return new BrowserActionPayload(Data: new { items, missing, allVisible = missing.Length == 0 }, Message: missing.Length == 0 ? "All list items are visible." : "Some list items were not found.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> MouseClickAsync(McpServer server, float x, float y, string? tabId, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseClickAsync(McpServer server, float x, float y, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_mouse_click_xy", PageCaptureMode.Snapshot, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             await page.Mouse.ClickAsync(x, y);
             return new BrowserActionPayload(Data: new { x, y }, TabId: GetTabId(session, page), Message: "Clicked coordinates.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    public Task<BrowserCommandResult> MouseDownAsync(McpServer server, string? button, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseDownAsync(McpServer server, string? button, string? instanceName, CancellationToken cancellationToken)
         => ExecuteMouseAsync(server, "browser_mouse_down", async page =>
         {
             await page.Mouse.DownAsync(new() { Button = ParseMouseButton(button) });
             return new { button = button ?? "left" };
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> MouseDragAsync(McpServer server, float fromX, float fromY, float toX, float toY, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseDragAsync(McpServer server, float fromX, float fromY, float toX, float toY, string? instanceName, CancellationToken cancellationToken)
         => ExecuteMouseAsync(server, "browser_mouse_drag_xy", async page =>
         {
             await page.Mouse.MoveAsync(fromX, fromY);
@@ -727,30 +728,30 @@ public sealed class BrowserToolExecutor
             await page.Mouse.MoveAsync(toX, toY);
             await page.Mouse.UpAsync();
             return new { fromX, fromY, toX, toY };
-        }, cancellationToken, PageCaptureMode.Snapshot);
+        }, instanceName, cancellationToken, PageCaptureMode.Snapshot);
 
-    public Task<BrowserCommandResult> MouseMoveAsync(McpServer server, float x, float y, int steps, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseMoveAsync(McpServer server, float x, float y, int steps, string? instanceName, CancellationToken cancellationToken)
         => ExecuteMouseAsync(server, "browser_mouse_move_xy", async page =>
         {
             await page.Mouse.MoveAsync(x, y, new() { Steps = steps });
             return new { x, y, steps };
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> MouseUpAsync(McpServer server, string? button, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseUpAsync(McpServer server, string? button, string? instanceName, CancellationToken cancellationToken)
         => ExecuteMouseAsync(server, "browser_mouse_up", async page =>
         {
             await page.Mouse.UpAsync(new() { Button = ParseMouseButton(button) });
             return new { button = button ?? "left" };
-        }, cancellationToken, PageCaptureMode.Snapshot);
+        }, instanceName, cancellationToken, PageCaptureMode.Snapshot);
 
-    public Task<BrowserCommandResult> MouseWheelAsync(McpServer server, float deltaX, float deltaY, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> MouseWheelAsync(McpServer server, float deltaX, float deltaY, string? instanceName, CancellationToken cancellationToken)
         => ExecuteMouseAsync(server, "browser_mouse_wheel", async page =>
         {
             await page.Mouse.WheelAsync(deltaX, deltaY);
             return new { deltaX, deltaY };
-        }, cancellationToken);
+        }, instanceName, cancellationToken);
 
-    public Task<BrowserCommandResult> RunCodeAsync(McpServer server, string? code, string? fileName, CancellationToken cancellationToken)
+    public Task<BrowserCommandResult> RunCodeAsync(McpServer server, string? code, string? fileName, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_run_code", PageCaptureMode.Summary, async (session, ct) =>
         {
             if (!_optionsMonitor.CurrentValue.Features.EnableRunCode)
@@ -759,7 +760,7 @@ public sealed class BrowserToolExecutor
             }
 
             return await _runCodeService.ExecuteAsync(session, server, code, fileName, ct);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public Task<BrowserCommandResult> RuntimeStatusAsync(McpServer server, string? browser, CancellationToken cancellationToken)
         => ExecuteAsync(server, "browser_runtime_status", PageCaptureMode.None, async (session, ct) =>
@@ -779,7 +780,7 @@ public sealed class BrowserToolExecutor
                 Message: "Playwright runtime installation completed.");
         }, cancellationToken);
 
-    private Task<BrowserCommandResult> StorageGetAsync(McpServer server, string tool, string storageObject, string? key, string? tabId, CancellationToken cancellationToken)
+    private Task<BrowserCommandResult> StorageGetAsync(McpServer server, string tool, string storageObject, string? key, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, tool, PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
@@ -791,36 +792,37 @@ public sealed class BrowserToolExecutor
 
             var single = await page.EvaluateAsync<string?>($"key => {storageObject}.getItem(key)", key);
             return new BrowserActionPayload(Data: new { key, value = single }, Message: $"Loaded {storageObject} item.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    private Task<BrowserCommandResult> StorageSetAsync(McpServer server, string tool, string storageObject, string key, string value, string? tabId, CancellationToken cancellationToken)
+    private Task<BrowserCommandResult> StorageSetAsync(McpServer server, string tool, string storageObject, string key, string value, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, tool, PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             await page.EvaluateAsync($"args => {storageObject}.setItem(args.key, args.value)", new { key, value });
             return new BrowserActionPayload(Data: new { key, value }, Message: $"Updated {storageObject} item.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    private Task<BrowserCommandResult> StorageRemoveAsync(McpServer server, string tool, string storageObject, string key, string? tabId, CancellationToken cancellationToken)
+    private Task<BrowserCommandResult> StorageRemoveAsync(McpServer server, string tool, string storageObject, string key, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, tool, PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             await page.EvaluateAsync($"key => {storageObject}.removeItem(key)", key);
             return new BrowserActionPayload(Data: new { key }, Message: $"Removed {storageObject} item.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
-    private Task<BrowserCommandResult> StorageClearAsync(McpServer server, string tool, string storageObject, string? tabId, CancellationToken cancellationToken)
+    private Task<BrowserCommandResult> StorageClearAsync(McpServer server, string tool, string storageObject, string? tabId, string? instanceName, CancellationToken cancellationToken)
         => ExecuteAsync(server, tool, PageCaptureMode.None, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             await page.EvaluateAsync($"() => {storageObject}.clear()");
             return new BrowserActionPayload(Message: $"Cleared {storageObject}.");
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     private Task<BrowserCommandResult> ExecuteMouseAsync(
         McpServer server,
         string tool,
         Func<IPage, Task<object>> action,
+        string? instanceName,
         CancellationToken cancellationToken,
         PageCaptureMode captureMode = PageCaptureMode.Summary)
         => ExecuteAsync(server, tool, captureMode, async (session, ct) =>
@@ -828,7 +830,7 @@ public sealed class BrowserToolExecutor
             var page = await session.GetPageAsync(null, true, ct);
             var data = await action(page);
             return new BrowserActionPayload(Data: data, TabId: GetTabId(session, page));
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     private Task<BrowserCommandResult> ExecuteTargetAsync(
         McpServer server,
@@ -837,13 +839,14 @@ public sealed class BrowserToolExecutor
         string? tabId,
         PageCaptureMode captureMode,
         Func<BrowserSession, IPage, ILocator, CancellationToken, Task<BrowserActionPayload>> action,
+        string? instanceName,
         CancellationToken cancellationToken)
         => ExecuteAsync(server, tool, captureMode, async (session, ct) =>
         {
             var page = await session.GetPageAsync(tabId, true, ct);
             var locator = session.ResolveTarget(page, target);
             return await action(session, page, locator, ct);
-        }, cancellationToken);
+        }, cancellationToken, instanceName);
 
     public async Task<BrowserCommandResult> InstanceCreateAsync(
         McpServer server,
