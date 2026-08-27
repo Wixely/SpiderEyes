@@ -34,12 +34,12 @@ public sealed class ClaudeCompatibleBrowserTools
     [McpServerTool(Name = "browser_get_config", ReadOnly = true)]
     [Description("Return the effective server and browser configuration.")]
     public Task<string> GetConfigAsync(McpServer server, CancellationToken cancellationToken)
-        => SerializeAsync(_executor.GetConfigAsync(server, cancellationToken));
+        => SerializeAsync(_executor.GetConfigAsync(server, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_tabs", ReadOnly = true)]
     [Description("List open tabs for the current session.")]
     public Task<string> TabsAsync(McpServer server, CancellationToken cancellationToken)
-        => SerializeAsync(_executor.TabsAsync(server, cancellationToken));
+        => SerializeAsync(_executor.TabsAsync(server, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_navigate")]
     [Description("Navigate the active tab to a URL.")]
@@ -52,7 +52,7 @@ public sealed class ClaudeCompatibleBrowserTools
     [McpServerTool(Name = "browser_navigate_back")]
     [Description("Navigate the active tab back in history.")]
     public Task<string> NavigateBackAsync(McpServer server, CancellationToken cancellationToken)
-        => SerializeAsync(_executor.NavigateBackAsync(server, tabId: null, cancellationToken));
+        => SerializeAsync(_executor.NavigateBackAsync(server, tabId: null, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_snapshot", ReadOnly = true)]
     [Description("Capture an AI-friendly accessibility snapshot of the active page.")]
@@ -62,7 +62,7 @@ public sealed class ClaudeCompatibleBrowserTools
     [McpServerTool(Name = "browser_take_screenshot", ReadOnly = true)]
     [Description("Save a screenshot of the active page.")]
     public Task<string> ScreenshotAsync(McpServer server, CancellationToken cancellationToken)
-        => SerializeAsync(_executor.ScreenshotAsync(server, tabId: null, fileName: null, fullPage: false, cancellationToken));
+        => SerializeAsync(_executor.ScreenshotAsync(server, tabId: null, fileName: null, fullPage: false, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_click")]
     [Description("Click a target element by aria ref or selector.")]
@@ -70,7 +70,7 @@ public sealed class ClaudeCompatibleBrowserTools
         [Description("Target element reference or selector.")] string target,
         McpServer server,
         CancellationToken cancellationToken)
-        => SerializeAsync(_executor.ClickAsync(server, target, tabId: null, doubleClick: false, button: null, cancellationToken));
+        => SerializeAsync(_executor.ClickAsync(server, target, tabId: null, doubleClick: false, button: null, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_type")]
     [Description("Type text into an editable target element.")]
@@ -79,7 +79,7 @@ public sealed class ClaudeCompatibleBrowserTools
         [Description("Text to enter.")] string text,
         McpServer server,
         CancellationToken cancellationToken)
-        => SerializeAsync(_executor.TypeAsync(server, target, text, tabId: null, submit: false, slowly: false, cancellationToken));
+        => SerializeAsync(_executor.TypeAsync(server, target, text, tabId: null, submit: false, slowly: false, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_press_key")]
     [Description("Press a keyboard key on the active page.")]
@@ -87,7 +87,7 @@ public sealed class ClaudeCompatibleBrowserTools
         [Description("Key such as Enter, ArrowDown, or Escape.")] string key,
         McpServer server,
         CancellationToken cancellationToken)
-        => SerializeAsync(_executor.PressKeyAsync(server, key, target: null, tabId: null, cancellationToken));
+        => SerializeAsync(_executor.PressKeyAsync(server, key, target: null, tabId: null, instanceName: null, cancellationToken));
 
     [McpServerTool(Name = "browser_verify_text_visible", ReadOnly = true)]
     [Description("Verify that text is visible on the page.")]
@@ -95,7 +95,7 @@ public sealed class ClaudeCompatibleBrowserTools
         [Description("Text to search for.")] string text,
         McpServer server,
         CancellationToken cancellationToken)
-        => SerializeAsync(_executor.VerifyTextVisibleAsync(server, text, exact: false, tabId: null, cancellationToken));
+        => SerializeAsync(_executor.VerifyTextVisibleAsync(server, text, exact: false, tabId: null, instanceName: null, cancellationToken));
 
     private static async Task<string> SerializeAsync(Task<BrowserCommandResult> task)
     {

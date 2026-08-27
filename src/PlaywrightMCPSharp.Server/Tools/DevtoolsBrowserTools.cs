@@ -21,16 +21,18 @@ public sealed class DevtoolsBrowserTools
         [Description("Target element reference or selector.")] string target,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.HighlightAsync(server, target, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.HighlightAsync(server, target, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_hide_highlight", UseStructuredContent = true)]
     [Description("Remove all highlights previously added by browser_highlight.")]
     public Task<BrowserCommandResult> HideHighlightAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.HideHighlightAsync(server, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.HideHighlightAsync(server, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_generate_locator", UseStructuredContent = true, ReadOnly = true)]
     [Description("Generate locator suggestions for a target element.")]
@@ -38,24 +40,27 @@ public sealed class DevtoolsBrowserTools
         [Description("Target element reference or selector.")] string target,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.GenerateLocatorAsync(server, target, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.GenerateLocatorAsync(server, target, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_start_tracing", UseStructuredContent = true)]
     [Description("Start Playwright tracing for the current session.")]
     public Task<BrowserCommandResult> StartTracingAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional trace title.")] string? title = null)
-        => _executor.StartTracingAsync(server, title, cancellationToken);
+        [Description("Optional trace title.")] string? title = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.StartTracingAsync(server, title, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_stop_tracing", UseStructuredContent = true)]
     [Description("Stop Playwright tracing and save a trace artifact.")]
     public Task<BrowserCommandResult> StopTracingAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional output file name.")] string? fileName = null)
-        => _executor.StopTracingAsync(server, fileName, cancellationToken);
+        [Description("Optional output file name.")] string? fileName = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.StopTracingAsync(server, fileName, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_verify_element_visible", UseStructuredContent = true, ReadOnly = true)]
     [Description("Verify that a target element is currently visible.")]
@@ -63,8 +68,9 @@ public sealed class DevtoolsBrowserTools
         [Description("Target element reference or selector.")] string target,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.VerifyElementVisibleAsync(server, target, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.VerifyElementVisibleAsync(server, target, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_verify_text_visible", UseStructuredContent = true, ReadOnly = true)]
     [Description("Verify that text is visible on the page.")]
@@ -73,8 +79,9 @@ public sealed class DevtoolsBrowserTools
         McpServer server,
         CancellationToken cancellationToken,
         [Description("Require an exact text match.")] bool exact = false,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.VerifyTextVisibleAsync(server, text, exact, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.VerifyTextVisibleAsync(server, text, exact, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_verify_value", UseStructuredContent = true, ReadOnly = true)]
     [Description("Verify that an input element has an expected value.")]
@@ -83,8 +90,9 @@ public sealed class DevtoolsBrowserTools
         [Description("Expected value.")] string expectedValue,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.VerifyValueAsync(server, target, expectedValue, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.VerifyValueAsync(server, target, expectedValue, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_verify_list_visible", UseStructuredContent = true, ReadOnly = true)]
     [Description("Verify that a list of expected strings is visible.")]
@@ -93,8 +101,9 @@ public sealed class DevtoolsBrowserTools
         McpServer server,
         CancellationToken cancellationToken,
         [Description("Optional parent target to limit the check.")] string? target = null,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.VerifyListVisibleAsync(server, items, target, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.VerifyListVisibleAsync(server, items, target, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_click_xy", UseStructuredContent = true)]
     [Description("Click absolute viewport coordinates.")]
@@ -103,16 +112,18 @@ public sealed class DevtoolsBrowserTools
         [Description("Y coordinate in CSS pixels.")] float y,
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Optional tab ID.")] string? tabId = null)
-        => _executor.MouseClickAsync(server, x, y, tabId, cancellationToken);
+        [Description("Optional tab ID.")] string? tabId = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseClickAsync(server, x, y, tabId, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_down", UseStructuredContent = true)]
     [Description("Press a mouse button down at the current pointer location.")]
     public Task<BrowserCommandResult> MouseDownAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Mouse button: left, middle, or right.")] string? button = null)
-        => _executor.MouseDownAsync(server, button, cancellationToken);
+        [Description("Mouse button: left, middle, or right.")] string? button = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseDownAsync(server, button, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_drag_xy", UseStructuredContent = true)]
     [Description("Perform a drag gesture between viewport coordinates.")]
@@ -122,8 +133,9 @@ public sealed class DevtoolsBrowserTools
         [Description("Drag end X coordinate.")] float toX,
         [Description("Drag end Y coordinate.")] float toY,
         McpServer server,
-        CancellationToken cancellationToken)
-        => _executor.MouseDragAsync(server, fromX, fromY, toX, toY, cancellationToken);
+        CancellationToken cancellationToken,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseDragAsync(server, fromX, fromY, toX, toY, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_move_xy", UseStructuredContent = true)]
     [Description("Move the mouse pointer to viewport coordinates.")]
@@ -132,16 +144,18 @@ public sealed class DevtoolsBrowserTools
         [Description("Y coordinate in CSS pixels.")] float y,
         [Description("Number of intermediate steps.")] int steps,
         McpServer server,
-        CancellationToken cancellationToken)
-        => _executor.MouseMoveAsync(server, x, y, steps, cancellationToken);
+        CancellationToken cancellationToken,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseMoveAsync(server, x, y, steps, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_up", UseStructuredContent = true)]
     [Description("Release a mouse button at the current pointer location.")]
     public Task<BrowserCommandResult> MouseUpAsync(
         McpServer server,
         CancellationToken cancellationToken,
-        [Description("Mouse button: left, middle, or right.")] string? button = null)
-        => _executor.MouseUpAsync(server, button, cancellationToken);
+        [Description("Mouse button: left, middle, or right.")] string? button = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseUpAsync(server, button, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_mouse_wheel", UseStructuredContent = true)]
     [Description("Scroll the mouse wheel by the supplied deltas.")]
@@ -149,8 +163,9 @@ public sealed class DevtoolsBrowserTools
         [Description("Horizontal wheel delta.")] float deltaX,
         [Description("Vertical wheel delta.")] float deltaY,
         McpServer server,
-        CancellationToken cancellationToken)
-        => _executor.MouseWheelAsync(server, deltaX, deltaY, cancellationToken);
+        CancellationToken cancellationToken,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.MouseWheelAsync(server, deltaX, deltaY, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_run_code", UseStructuredContent = true)]
     [Description("Execute a C# script against the current Playwright page and browser context.")]
@@ -158,8 +173,9 @@ public sealed class DevtoolsBrowserTools
         McpServer server,
         CancellationToken cancellationToken,
         [Description("Inline C# script to run.")] string? code = null,
-        [Description("Optional script file to load from MCP roots or the workspace.")] string? fileName = null)
-        => _executor.RunCodeAsync(server, code, fileName, cancellationToken);
+        [Description("Optional script file to load from MCP roots or the workspace.")] string? fileName = null,
+        [Description("Optional named browser instance (see browser_instance_create). Omit to use the session's default instance. Use one stable, unique name per agent or job so concurrent agents do not share a browser.")] string? instanceName = null)
+        => _executor.RunCodeAsync(server, code, fileName, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_runtime_status", UseStructuredContent = true, ReadOnly = true)]
     [Description("Report whether the required Playwright browser runtime is already installed on the host.")]

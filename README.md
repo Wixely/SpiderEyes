@@ -307,11 +307,17 @@ Multiple agents multiplexed through one MCP session (or sharing the stdio fallba
 - `browser_instance_create` — explicitly create a named instance (`instanceName`, optional `browserType`, `headless`, `storageState` JSON). Fails if the name exists.
 - `browser_instance_list` — list this session's instances.
 - `browser_instance_status` — engine, headless flag, started/connected, tab count, busy state, timestamps.
-- `browser_instance_close` — dispose one instance without affecting others; waits for its in-flight command.
+- `browser_instance_close` — dispose one instance without affecting others; waits up to 10 seconds for its in-flight command, then closes regardless.
 
-Browser tools accept an optional `instanceName` argument (currently `browser_navigate`, `browser_snapshot`, and `browser_evaluate`; the rest of the catalog is being migrated). Omitting it uses the session's `default` instance, which is created on demand, so existing clients are unaffected. Passing a name that was never created fails deterministically.
+Every stateful browser tool accepts an optional `instanceName` argument. Omitting it uses the session's `default` instance, which is created on demand, so existing clients are unaffected. Passing a name that was never created fails deterministically.
 
-Instance names must match `[a-z0-9][a-z0-9._-]{0,63}` (input is trimmed and lowercased). Limits are configurable via `PlaywrightMCPSharp:Session:MaxInstancesPerSession` (default 4) and `PlaywrightMCPSharp:Session:MaxGlobalInstances` (default 16). The feature can be disabled with `PlaywrightMCPSharp:Features:NamedInstances=false`. The Claude-compatible tool catalog does not expose instance tools yet.
+The five tools that do not take `instanceName` are the ones that do not depend on a browser instance: `browser_list_viewport_presets`, `browser_list_devices`, `browser_runtime_status`, `browser_install_runtime`, and `browser_instance_list` (which is session-scoped by definition).
+
+Tab identifiers are scoped to one instance. Passing a tab id that is not open in the target instance is an error rather than a silent fallback to the current tab — that applies equally to a handle from another instance and to one closed or invalidated by a context reset. Use `browser_tabs` for the live list.
+
+Instance names must match `[a-z0-9][a-z0-9._-]{0,63}` (input is trimmed and lowercased). Limits are configurable via `PlaywrightMCPSharp:Session:MaxInstancesPerSession` (default 4) and `PlaywrightMCPSharp:Session:MaxGlobalInstances` (default 16). The feature can be disabled with `PlaywrightMCPSharp:Features:NamedInstances=false`, which unregisters the `browser_instance_*` tools and makes any non-default `instanceName` fail with an explanation; the argument itself stays in the advertised schema.
+
+The Claude-compatible tool catalog remains deliberately instance-unaware: it registers neither the `browser_instance_*` tools nor `instanceName` arguments, and always uses the `default` instance. Migrating it would change a catalog whose tool shapes mirror an external contract, so that stays an explicit decision rather than a side effect of this work.
 
 ## `browser_run_code`
 

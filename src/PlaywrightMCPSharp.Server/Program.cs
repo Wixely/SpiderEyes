@@ -208,6 +208,11 @@ static void ConfigureOptions(IServiceCollection services, IConfiguration configu
 
 static void ConfigureCoreServices(IServiceCollection services)
 {
+    // The idle browser sweep contains its own catch-all so it cannot fault the host; see
+    // BrowserSessionManager.ExecuteAsync. Deliberately NOT relaxing HostOptions here: this method
+    // configures both the HTTP and stdio hosts, so switching the host-wide policy to Ignore would
+    // also silence the MCP transport's own hosted services, turning a clean crash into a live
+    // process with a dead server.
     services.AddSingleton<BrowserSessionManager>();
     services.AddHostedService(static serviceProvider => serviceProvider.GetRequiredService<BrowserSessionManager>());
     services.AddSingleton<FileAccessService>();

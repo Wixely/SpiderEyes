@@ -40,7 +40,7 @@ public sealed class InstanceBrowserTools
         => _executor.InstanceStatusAsync(server, instanceName, cancellationToken);
 
     [McpServerTool(Name = "browser_instance_close", UseStructuredContent = true)]
-    [Description("Close a named browser instance, disposing its browser process, context, tabs, and in-memory state. Other instances are unaffected. Waits for the instance's in-flight command to finish. Fails for unknown names.")]
+    [Description("Close a named browser instance, disposing its browser process, context, tabs, and in-memory state. Other instances are unaffected. Waits up to 10 seconds for the instance's in-flight command to finish, then closes regardless - so a long-running call on that instance can be cut short. Fails for unknown names.")]
     public Task<BrowserCommandResult> CloseAsync(
         [Description("Instance name to close.")] string instanceName,
         McpServer server,
